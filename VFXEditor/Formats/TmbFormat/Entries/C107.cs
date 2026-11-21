@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C107 : TmbEntry {
         public const string MAGIC = "C107";
         public const string DISPLAY_NAME = "VFX 触发器";
@@ -12,9 +14,9 @@ namespace VfxEditor.TmbFormat.Entries {
         public override int Size => 0x1C;
         public override int ExtraSize => 0;
 
-        private readonly ParsedInt Enabled = new( "启用" );
+        private readonly ParsedBool Enabled = new( "启用" );
         private readonly ParsedInt Unk2 = new( "未知 2" );
-        private readonly ParsedInt TriggerRow = new( "行" );
+        private readonly ParsedInt TriggerRow = new( "行" ); //row + 1
         private readonly ParsedInt Unk4 = new( "未知 4" );
 
         public C107( TmbFile file ) : base( file ) { }

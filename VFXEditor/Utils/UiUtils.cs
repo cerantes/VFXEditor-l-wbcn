@@ -10,6 +10,8 @@ using System.Linq;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Text;
+using VfxEditor.Data;
+using VfxEditor.Data.Command;
 using VfxEditor.Data.Command.ListCommands;
 using VfxEditor.FileBrowser;
 
@@ -30,6 +32,13 @@ namespace VfxEditor.Utils {
     };
 
     public static class UiUtils {
+        public static string WindowId( string name ) =>
+#if BETA
+            name + ( name.Contains( "##" ) ? "-BETA" : "##BETA" );
+#else
+            name;
+#endif
+
         public static readonly Vector4 RED_COLOR = new( 0.89098039216f, 0.30549019608f, 0.28980392157f, 1.0f );
 
         public static readonly Vector4 GREEN_COLOR = new( 0.36078431373f, 0.72156862745f, 0.36078431373f, 1.0f );
@@ -38,11 +47,13 @@ namespace VfxEditor.Utils {
 
         public static Vector4 DALAMUD_RED => StyleModel.GetFromCurrent().BuiltInColors.DalamudRed.Value;
 
-        public static Vector4 DALAMUD_YELLOW => StyleModel.GetFromCurrent().BuiltInColors.DalamudYellow.Value;
+        public static Vector4 YELLOW_ACCENT => StyleModel.GetFromCurrent().BuiltInColors.DalamudOrange.Value;
 
         public static Vector4 DALAMUD_ORANGE => StyleModel.GetFromCurrent().BuiltInColors.DalamudOrange.Value;
 
         public static Vector4 PARSED_GREEN => StyleModel.GetFromCurrent().BuiltInColors.ParsedGreen.Value;
+
+        public static Vector4 ACCENT_COLOR => Plugin.Configuration?.AccentColor ?? StyleModel.GetFromCurrent().BuiltInColors.DPSRed.Value;
 
         public static readonly string HIGH_PRECISION_FORMAT = "%.7f";
 
@@ -129,7 +140,8 @@ namespace VfxEditor.Utils {
         }
 
         public static void Tooltip( string text, bool hovered = false ) {
-            if( hovered || ImGui.IsItemHovered() ) {
+            if( hovered || ImGui.IsItemHovered( ImGuiHoveredFlags.AllowWhenDisabled ) ) {
+                using var font = ImRaii.PushFont( UiBuilder.DefaultFont, IsIconFontPushed() );
                 ImGui.BeginTooltip();
                 ImGui.PushTextWrapPos( ImGui.GetFontSize() * 35.0f );
                 ImGui.TextUnformatted( text );
@@ -138,9 +150,11 @@ namespace VfxEditor.Utils {
             }
         }
 
+        public static unsafe bool IsIconFontPushed() => ImGui.GetFont().Handle == UiBuilder.IconFont.Handle;
+
         public static void WikiButton( string url ) {
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( TransparentButton( FontAwesomeIcon.InfoCircle.ToIconString(), DALAMUD_ORANGE ) ) OpenUrl( url );
+                if( TransparentButton( FontAwesomeIcon.InfoCircle.ToIconString(), YELLOW_ACCENT ) ) OpenUrl( url );
             }
             Tooltip( "点击以在 VFXEditor Wiki 上了解更多信息(英文)" );
         }
@@ -150,7 +164,7 @@ namespace VfxEditor.Utils {
                 VerifiedStatus.VERIFIED or VerifiedStatus.PARTIAL => GREEN_COLOR,
                 VerifiedStatus.ERROR => RED_COLOR,
                 VerifiedStatus.WORKSPACE => new Vector4( 0.7f, 0.7f, 0.7f, 1.0f ),
-                VerifiedStatus.UNKNOWN or VerifiedStatus.UNSUPPORTED => DALAMUD_ORANGE,
+                VerifiedStatus.UNKNOWN or VerifiedStatus.UNSUPPORTED => YELLOW_ACCENT,
                 _ => new Vector4( 1 )
             };
 
@@ -164,10 +178,10 @@ namespace VfxEditor.Utils {
             };
 
             var text = verified switch {
-                VerifiedStatus.VERIFIED => "已验证",
-                VerifiedStatus.PARTIAL => "部分验证",
+                VerifiedStatus.VERIFIED => "文件已验证",
+                VerifiedStatus.PARTIAL => "文件部分验证",
                 VerifiedStatus.ERROR => "验证出错",
-                VerifiedStatus.WORKSPACE => "工作区",
+                VerifiedStatus.WORKSPACE => "工作区已加载",
                 VerifiedStatus.UNKNOWN => "未知",
                 VerifiedStatus.UNSUPPORTED => "不支持",
                 _ => "[其他]"
@@ -177,8 +191,10 @@ namespace VfxEditor.Utils {
                 ImGui.TextColored( color, icon );
             }
 
-            ImGui.SameLine();
-            ImGui.TextColored( color, text );
+            using( ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 2, 0 ) ) ) {
+                ImGui.SameLine();
+                ImGui.TextColored( color, text );
+            }
 
             if( verified == VerifiedStatus.UNSUPPORTED ) Tooltip( "不支持验证该类文件的有效性" );
 

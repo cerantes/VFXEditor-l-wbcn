@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Flag;
+using VfxEditor.Parsing.Int;
 using VfxEditor.Utils;
 
 namespace VfxEditor.Formats.MtrlFormat.Data.Dye {
@@ -28,7 +30,7 @@ namespace VfxEditor.Formats.MtrlFormat.Data.Dye {
         }
 
         public void Draw() {
-            if( UiUtils.EnumComboBox( "Template", Plugin.MtrlManager.Templates, Template.Value, out var value ) ) Template.Update( value );
+            if( UiUtils.EnumComboBox( "Template", Plugin.MtrlManager.StmFileLegacy.Templates, Template.Value, out var value ) ) Template.Update( value );
             Flags.Draw();
         }
     }

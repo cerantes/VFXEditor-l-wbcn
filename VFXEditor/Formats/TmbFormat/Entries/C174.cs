@@ -1,33 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
-    public enum ObjectControlPosition {
-        Stowed_State1 = 0,
-        Drawn_State0 = 1,
-        CraftGather_State2 = 2,
-        SwitchHand_State3 = 3,
-        n_throw_State4 = 4,
-        SwitchReverse_State5 = 5
-    }
-
-    public enum ObjectControlFinal {
-        Stowed_State1 = 0,
-        Drawn_State0 = 1,
-        CraftGather_State2 = 2,
-        SwitchHand_State3 = 3,
-        n_throw_State4 = 4,
-        SwitchReverse_State5 = 5,
-        Original = 6,
-    }
-
-    public enum ObjectControl {
-        Weapon_or_Pet = 0,
-        OffHand = 1,
-        Lemure_or_Summon = 2
-    }
-
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C174 : TmbEntry {
         public const string MAGIC = "C174";
         public const string DISPLAY_NAME = "物体控制";
@@ -39,10 +18,10 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedInt Duration = new( "持续时间" );
         private readonly ParsedInt Unk2 = new( "未知 2" );
-        private readonly ParsedEnum<ObjectControlPosition> ObjectPosition = new( "物体位置" );
+        private readonly ParsedEnum<AtchState> InitialPosition = new( "初始位置" );
         private readonly ParsedEnum<ObjectControl> ObjectControl = new( "物体控制" );
         private readonly ParsedEnum<ObjectControlFinal> FinalPosition = new( "最终位置" );
-        private readonly ParsedInt PositionDelay = new( "位置延迟" );
+        private readonly ParsedBool PositionDelay = new( "位置延迟" );
         private readonly ParsedInt Unk6 = new( "未知 6" );
 
         public C174( TmbFile file ) : base( file ) { }
@@ -52,7 +31,7 @@ namespace VfxEditor.TmbFormat.Entries {
         protected override List<ParsedBase> GetParsed() => [
             Duration,
             Unk2,
-            ObjectPosition,
+            InitialPosition,
             ObjectControl,
             FinalPosition,
             PositionDelay,

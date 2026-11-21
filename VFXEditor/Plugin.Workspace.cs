@@ -9,9 +9,11 @@ using System.Linq;
 using System.Numerics;
 using System.Threading;
 using System.Threading.Tasks;
+using VfxEditor.Data;
 using VfxEditor.FileBrowser;
 using VfxEditor.FileManager;
 using VfxEditor.FileManager.Interfaces;
+using VfxEditor.Interop.Penumbra;
 using VfxEditor.Select;
 using VfxEditor.Ui.Export;
 using VfxEditor.Ui.Import;
@@ -26,8 +28,6 @@ namespace VfxEditor {
     }
 
     public partial class Plugin {
-        public static readonly Dictionary<string, string> CustomPathBackups = []; // Map of lowercase custom game paths to local paths
-
         public static string CurrentWorkspaceLocation { get; private set; } = "";
         public static string CurrentWorkspaceName => string.IsNullOrEmpty( CurrentWorkspaceLocation ) ? "" : Path.GetFileName( CurrentWorkspaceLocation );
         public static WorkspaceState State { get; private set; } = WorkspaceState.None;
@@ -37,13 +37,16 @@ namespace VfxEditor {
         private static int BackupId = 0;
 
         private static int WorkspaceFileCount = 0;
+        private static int LoadingCount = 0;
         private static DateTime LastAutoSave = DateTime.Now;
 
         // Return true if it's loading and the UI needs to be hidden
-        private static bool CheckLoadState() {
+        private static bool CheckWorkspaceLoadState() {
             if( State == WorkspaceState.Cleanup ) {
                 LastAutoSave = DateTime.Now;
+                LoadingCount = 0;
                 State = WorkspaceState.None;
+                PenumbraTempMod.MarkDirty();
                 return true;
             }
 
@@ -74,23 +77,31 @@ namespace VfxEditor {
 
         private static async void NewWorkspace() {
             State = WorkspaceState.Loading;
-            await Task.Run( async () => {
-                await Task.Delay( 100 );
-                WorkspaceFileCount = Groups.Count - 1;
+            WorkspaceFileCount = 0;
+            try {
+                await Task.Run( async () => {
+                    await Task.Delay( 100 );
 
-                foreach( var group in Groups.Where( x => x != null ) ) {
-                    var isOpen = group.AnyWindowsOpen();
-                    group.Reset( false );
-                    if( group is FileManagerGroupBase g ) g.AddDefaultDocument();
-                    if( isOpen ) group.Show();
-                }
+                    foreach( var group in Groups.Where( x => x != null ) ) {
+                        var isOpen = group.AnyWindowsOpen();
+                        group.Reset( false );
+                        if( group is FileManagerGroupBase g ) g.AddDefaultDocument();
+                        if( isOpen ) group.Show();
+                    }
 
-                FileBrowserManager.Dispose();
-                ExportDialog.Reset();
+                    FileBrowserManager.Dispose();
+                    ExportDialog.Reset();
 
-                CurrentWorkspaceLocation = "";
+                    CurrentWorkspaceLocation = "";
+                } );
+            }
+            catch( Exception e ) {
+                Dalamud.Error( e, "新建工作区出错" );
+                Dalamud.ErrorNotification( "新建工作区出错" );
+            }
+            finally {
                 State = WorkspaceState.Cleanup;
-            } );
+            }
         }
 
         private static void OpenWorkspacePenumbra( bool reset ) {
@@ -103,41 +114,43 @@ namespace VfxEditor {
             State = WorkspaceState.Loading;
             var mod = res.Mod;
 
-            var loadCount = 0;
-            foreach( var option in mod.SourceFiles ) {
-                foreach( var file in option.Value ) {
-                    loadCount++;
-                }
-            }
-            WorkspaceFileCount = loadCount;
-            await Task.Run( () => {
-                if( res.Reset ) {
-                    foreach( var manager in Groups.Where( x => x != null ) ) manager.Reset( false );
-                }
-                foreach( var option in mod.SourceFiles ) {
-                    var optionName = option.Key;
-                    if( !res.Options.Contains( optionName ) ) continue;
+            WorkspaceFileCount = mod.SourceFiles.Where( x => res.Options.Contains( x.Key ) ).Sum( x => x.Value.Count );
+            try {
+                await Task.Run( () => {
+                    if( res.Reset ) {
+                        foreach( var manager in Groups.Where( x => x != null ) ) manager.Reset( false );
+                    }
+                    foreach( var option in mod.SourceFiles ) {
+                        var optionName = option.Key;
+                        if( !res.Options.Contains( optionName ) ) continue;
 
-                    foreach( var file in option.Value ) {
-                        var gamePath = "";
-                        var filePath = "";
-                        if( file.Contains( '|' ) ) {
-                            var split = file.Split( "|" );
-                            gamePath = split[0];
-                            filePath = split[1];
-                        }
-                        var selectedFile = new SelectResult( SelectResultType.Local, gamePath, $"[PEN] {optionName} : {gamePath}", filePath );
-                        var replacedFile = new SelectResult( SelectResultType.Local, gamePath, $"{gamePath}", gamePath );
-                        foreach( var manager in Groups.Where( x => x != null ) ) {
-                            if( manager.CanImport( gamePath ) ) {
-                                manager.PenumbraImport( selectedFile, replacedFile );
-                                Dalamud.Log( "Imported " + selectedFile.Path );
+                        foreach( var file in option.Value ) {
+                            var gamePath = "";
+                            var filePath = "";
+                            if( file.Contains( '|' ) ) {
+                                var split = file.Split( "|" );
+                                gamePath = split[0];
+                                filePath = split[1];
+                            }
+                            var selectedFile = new SelectResult( SelectResultType.Local, gamePath, $"[PEN] {optionName} : {gamePath}", filePath );
+                            var replacedFile = new SelectResult( SelectResultType.Local, gamePath, $"{gamePath}", gamePath );
+                            foreach( var manager in Groups.Where( x => x != null ) ) {
+                                if( manager.CanImport( gamePath ) ) {
+                                    manager.PenumbraImport( selectedFile, replacedFile );
+                                    Dalamud.Log( "Imported " + selectedFile.Path );
+                                }
                             }
                         }
                     }
-                }
-            } );
-            State = WorkspaceState.None;
+                } );
+            }
+            catch( Exception e ) {
+                Dalamud.Error( e, "导入 Penumbra 模组出错" );
+                Dalamud.ErrorNotification( "导入 Penumbra 模组出错" );
+            }
+            finally {
+                State = WorkspaceState.Cleanup;
+            }
         }
 
         private static void OpenWorkspace( bool reset ) {
@@ -164,20 +177,30 @@ namespace VfxEditor {
         private static void OpenWorkspaceAsync( string loadLocation, string tempDir, bool unzip, bool reset ) {
             State = WorkspaceState.Loading;
             Task.Run( async () => {
-                await Task.Delay( 100 );
-                if( unzip ) ZipFile.ExtractToDirectory( loadLocation, tempDir, true );
+                try {
+                    await Task.Delay( 100 );
+                    if( unzip ) ZipFile.ExtractToDirectory( loadLocation, tempDir, true );
 
-                if( OpenWorkspaceFolder( tempDir, reset ) ) {
-                    CurrentWorkspaceLocation = loadLocation;
-                    BackupId = 0;
-                    Configuration.AddRecentWorkspace( loadLocation );
+                    if( OpenWorkspaceFolder( tempDir, reset ) ) {
+                        CurrentWorkspaceLocation = loadLocation;
+                        BackupId = 0;
+                        Configuration.AddRecentWorkspace( loadLocation );
+                    }
+                }
+                catch( Exception e ) {
+                    Dalamud.Error( e, $"加载工作区出错：{loadLocation}" );
+                    Dalamud.ErrorNotification( "加载工作区出错" );
+                }
+                finally {
+                    try {
+                        if( unzip && Directory.Exists( tempDir ) ) Directory.Delete( tempDir, true );
+                    }
+                    catch( Exception e ) {
+                        Dalamud.Error( e, $"无法删除 {tempDir}" );
+                    }
+                    // Cleanup re-syncs Penumbra, which is also needed if a reset happened before a failure
                     State = WorkspaceState.Cleanup;
                 }
-                else {
-                    State = WorkspaceState.None;
-                }
-
-                if( unzip ) Directory.Delete( tempDir, true );
             } );
         }
 
@@ -208,8 +231,14 @@ namespace VfxEditor {
         }
 
         private static void DrawLoadingDialog() {
-            if( ImGui.Begin( "Loading Workspace...", ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoDocking ) ) {
-                var count = WorkspaceFileCount == 0 ? 0 : Groups.Where( x => x != null ).Select( x => x.GetDocuments().Count() ).Sum();
+            if( ImGui.Begin( UiUtils.WindowId( "Loading Workspace..." ), ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoCollapse | ImGuiWindowFlags.NoDocking ) ) {
+                // Documents are being added on another thread, so the lists can change while counting
+                try {
+                    LoadingCount = WorkspaceFileCount == 0 ? 0 : Groups.Where( x => x != null ).Select( x => x.GetDocuments().Count() ).Sum();
+                }
+                catch( InvalidOperationException ) { }
+
+                var count = LoadingCount;
                 ImGui.Text( $"{count} / {WorkspaceFileCount}" );
 
                 var pos = ImGui.GetCursorScreenPos();
@@ -224,9 +253,8 @@ namespace VfxEditor {
                 if( count > 0 ) {
                     drawList.AddRectFilled( pos, pos + new Vector2( filled, height ), ImGui.ColorConvertFloat4ToU32( UiUtils.PARSED_GREEN ), 5f );
                 }
-
-                ImGui.End();
             }
+            ImGui.End();
         }
 
         // =================================
@@ -288,24 +316,6 @@ namespace VfxEditor {
                 SavingLock.Release(); // Make sure to release!
                 Saving = false;
             } );
-        }
-
-        // =======================
-
-        public static void AddCustomBackupLocation( SelectResult result, string localPath ) {
-            if( result == null || result.Type == SelectResultType.Local ) return;
-            AddCustomBackupLocation( result.Path, localPath );
-        }
-
-        public static void AddCustomBackupLocation( string gamePath, string localPath ) {
-            if( string.IsNullOrEmpty( gamePath ) || string.IsNullOrEmpty( localPath ) ) return;
-            if( Dalamud.GameFileExists( gamePath ) ) return; // not a custom path
-
-            CustomPathBackups[gamePath.ToLower()] = localPath;
-            if( Configuration?.LogDebug == true ) {
-                Dalamud.Log( "[自定义]" );
-                foreach( var (game, local) in CustomPathBackups ) Dalamud.Log( $" {game} -> {local}" );
-            }
         }
     }
 }

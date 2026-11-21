@@ -1,11 +1,10 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Bindings.ImGui;
 using System;
 using VfxEditor.FileBrowser;
-using VfxEditor.TmbFormat;
-using VfxEditor.TmbFormat.Actor;
-using VfxEditor.TmbFormat.Entries;
+using VfxEditor.Formats.TmbFormat.Actor;
+using VfxEditor.Formats.TmbFormat.Entries;
 using VfxEditor.Ui.Components.SplitViews;
 using VfxEditor.Utils;
 
@@ -34,15 +33,18 @@ namespace VfxEditor.Formats.TmbFormat.Track {
                     }
                 } );
             }
+            UiUtils.Tooltip( "导入轨道" );
 
             using var disabled = ImRaii.Disabled( Selected == null );
 
             ImGui.SameLine();
             if( ImGui.Button( FontAwesomeIcon.Save.ToIconString() ) ) {
+                var selected = Selected;
                 FileBrowserManager.SaveFileDialog( "Select a Save Location", ".tmbtrack,.*", "ExportedTmbTrack", "tmbtrack", ( ok, res ) => {
-                    if( ok ) System.IO.File.WriteAllBytes( res, Selected.ToBytes() );
+                    if( ok && selected != null ) System.IO.File.WriteAllBytes( res, selected.ToBytes() );
                 } );
             }
+            UiUtils.Tooltip( "导出轨道" );
 
             ImGui.SameLine();
             if( UiUtils.RemoveButton( FontAwesomeIcon.Trash.ToIconString() ) ) {

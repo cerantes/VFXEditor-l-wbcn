@@ -1,15 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C197 : TmbEntry {
-        public enum SpeakTmbType {
-            Normal = 0,
-            Whisper = 1,
-            Shout = 2,
-            Disabled = 3,
-        }
         public const string MAGIC = "C197";
         public const string DISPLAY_NAME = "语音台词";
         public override string DisplayName => DISPLAY_NAME;

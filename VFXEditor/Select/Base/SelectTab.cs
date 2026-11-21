@@ -1,13 +1,14 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Threading.Tasks;
+using VfxEditor.Data;
 using VfxEditor.Select.Base;
 
-namespace VfxEditor.Select {
+namespace VfxEditor.Select.Base {
     public abstract class SelectTab {
         protected readonly SelectDialog Dialog;
         protected readonly string Name;
@@ -88,7 +89,7 @@ namespace VfxEditor.Select {
             if( KeybindConfiguration.NavigateUpDown( Searched, Selected, out var newSelected ) ) Select( newSelected );
 
             using var style = ImRaii.PushStyle( ImGuiStyleVar.WindowPadding, new Vector2( 0, 0 ) );
-            using var table = ImRaii.Table( "Table", 2, ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.NoHostExtendY, new( -1, ImGui.GetContentRegionAvail().Y ) );
+            using var table = ImRaii.Table( "Table", 2, ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.NoHostExtendY | ImGuiTableFlags.NoSavedSettings, new( -1, ImGui.GetContentRegionAvail().Y ) );
             if( !table ) return;
             style.Dispose();
 
@@ -221,9 +222,17 @@ namespace VfxEditor.Select {
 
         private async void LoadItemAsync( T item ) {
             Loaded = null;
-            await Task.Run( () => {
-                LoadSelection( item, out Loaded );
-            } );
+            try {
+                var loaded = await Task.Run( () => {
+                    LoadSelection( item, out var result );
+                    return result;
+                } );
+                // A newer selection may have been made while this one was loading
+                if( ReferenceEquals( Selected, item ) ) Loaded = loaded;
+            }
+            catch( Exception e ) {
+                Dalamud.Error( e, $"加载选中项出错：{item?.GetName()}" );
+            }
         }
 
         public abstract void LoadSelection( T item, out S loaded );

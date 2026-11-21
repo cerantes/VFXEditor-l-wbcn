@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Flag;
+using VfxEditor.Parsing.Int;
+using VfxEditor.Utils;
 
 namespace VfxEditor.Formats.MtrlFormat.Data.Dye {
     [Flags]
@@ -8,12 +11,12 @@ namespace VfxEditor.Formats.MtrlFormat.Data.Dye {
         Diffuse = 0x01,
         Specular = 0x02,
         Emissive = 0x04,
-        Unknown = 0x08,
+        Exposure = 0x08,
         Metalness = 0x10,
-        Rougness = 0x20,
+        Roughness = 0x20,
         Sheen_Rate = 0x40,
         Sheen_Tint_Rate = 0x80,
-        Sheen_Aperature = 0x100,
+        Sheen_Aperture = 0x100,
         Anisotropy = 0x200,
         Sphere_Map_Index = 0x400,
         Sphere_Map_Mask = 0x800
@@ -36,7 +39,7 @@ namespace VfxEditor.Formats.MtrlFormat.Data.Dye {
         }
 
         public void Draw() {
-            // TODO: template
+            if( UiUtils.EnumComboBox( "Template", Plugin.MtrlManager.StmFile.Templates, Template.Value, out var value ) ) Template.Update( value );
             Channel.Draw();
             Flags.Draw();
         }

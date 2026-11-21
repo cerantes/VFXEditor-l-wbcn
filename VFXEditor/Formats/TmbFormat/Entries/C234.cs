@@ -1,11 +1,12 @@
 using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C234 : TmbEntry {
         public const string MAGIC = "C234";
-        public const string DISPLAY_NAME = "";
+        public const string DISPLAY_NAME = "设置动画状态";
         public override string DisplayName => DISPLAY_NAME;
         public override string Magic => MAGIC;
 
@@ -14,8 +15,8 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedInt Unk1 = new( "Unknown 1" );
         private readonly ParsedInt Unk2 = new( "Unknown 2" );
-        private readonly ParsedShort Unk3 = new( "Unknown 3" );
-        private readonly ParsedShort Unk4 = new( "Unknown 4" );
+        private readonly ParsedShort Unk3 = new( "动画状态槽位" );
+        private readonly ParsedShort Unk4 = new( "动画状态值" );
         private readonly ParsedInt Unk5 = new( "Unknown 5" );
         private readonly ParsedInt Unk6 = new( "Unknown 6" );
 

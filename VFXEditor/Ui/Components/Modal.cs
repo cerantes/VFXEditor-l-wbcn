@@ -25,24 +25,25 @@ namespace VfxEditor.Ui.Components {
             using var command = new CommandRaii( Command );
 
             var open = true;
-            if( ImGui.BeginPopupModal( Title, ref open, ImGuiWindowFlags.AlwaysAutoResize ) ) {
-                using var _ = ImRaii.PushId( "Modal" );
-                DrawBody();
-                ImGui.Separator();
+            if( ImGui.BeginPopupModal( UiUtils.WindowId( Title ), ref open, ImGuiWindowFlags.AlwaysAutoResize ) ) {
+                using( ImRaii.PushId( "Modal" ) ) {
+                    DrawBody();
+                    ImGui.Separator();
 
-                if( ImGui.Button( "确定", new Vector2( 120, 0 ) ) ) {
-                    ImGui.CloseCurrentPopup();
-                    Remove();
-                    OnOk();
-                }
-
-                if( ShowCancel ) {
-                    ImGui.SameLine();
-                    using var style = ImRaii.PushColor( ImGuiCol.Button, UiUtils.RED_COLOR );
-                    if( ImGui.Button( "取消", new Vector2( 120, 0 ) ) ) {
+                    if( ImGui.Button( "确认", new Vector2( 120, 0 ) ) ) {
                         ImGui.CloseCurrentPopup();
                         Remove();
-                        OnCancel();
+                        OnOk();
+                    }
+
+                    if( ShowCancel ) {
+                        ImGui.SameLine();
+                        using var style = ImRaii.PushColor( ImGuiCol.Button, UiUtils.RED_COLOR );
+                        if( ImGui.Button( "Cancel", new Vector2( 120, 0 ) ) ) {
+                            ImGui.CloseCurrentPopup();
+                            Remove();
+                            OnCancel();
+                        }
                     }
                 }
 

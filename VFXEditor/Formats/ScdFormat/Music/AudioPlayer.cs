@@ -1,16 +1,17 @@
-﻿using Dalamud.Interface;
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using System;
 using System.IO;
-using System.Numerics;
-using VfxEditor.FileBrowser;
-using VfxEditor.ScdFormat.Music.Data;
-using VfxEditor.Utils;
 using System.Linq;
+using System.Numerics;
+using VfxEditor.Data;
+using VfxEditor.FileBrowser;
+using VfxEditor.Utils;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Music {
     public class AudioPlayer {
         private readonly ScdAudioEntry Entry;
         private PlaybackState State => CurrentOutput == null ? PlaybackState.Stopped : CurrentOutput.PlaybackState;
@@ -20,7 +21,7 @@ namespace VfxEditor.ScdFormat {
         private WaveStream RightStream;
         private IWaveProvider Volume;
         private MultiplexingWaveProvider LeftRightCombined;
-        private WasapiOut CurrentOutput;
+        private IWavePlayer CurrentOutput;
 
         private double TotalTime => LeftStream?.TotalTime == null ? 0 : LeftStream.TotalTime.TotalSeconds - 0.01f;
         private double CurrentTime => LeftStream?.CurrentTime == null ? 0 : LeftStream.CurrentTime.TotalSeconds;
@@ -107,6 +108,7 @@ namespace VfxEditor.ScdFormat {
                     if( IsWav ) SaveWaveDialog(); // can only save as .wav
                     else ImGui.OpenPopup( "SavePopup" );
                 }
+                UiUtils.Tooltip( "导出音频" );
             }
 
             using( var popup = ImRaii.Popup( "SavePopup" ) ) {
@@ -212,7 +214,7 @@ namespace VfxEditor.ScdFormat {
                 LeftRightCombined.ConnectInputToOutput( 1, 1 );
 
                 if( format.Encoding == WaveFormatEncoding.IeeeFloat ) {
-                    var floatVolume = new WaveFloatTo16Provider( LeftRightCombined ) {
+                    var floatVolume = new SampleToWaveProvider16( LeftRightCombined.ToSampleProvider() ) {
                         Volume = Plugin.Configuration.ScdVolume
                     };
                     Volume = floatVolume;
@@ -224,7 +226,12 @@ namespace VfxEditor.ScdFormat {
                     Volume = pcmVolume;
                 }
 
-                CurrentOutput = new WasapiOut();
+                // Build and configure the player
+                CurrentOutput = new WasapiPlayerBuilder()
+                    .WithSharedMode()
+                    .Build();
+
+                // Connect your audio source and start playback
                 CurrentOutput.Init( Volume );
                 CurrentOutput.Play();
             }
@@ -235,7 +242,7 @@ namespace VfxEditor.ScdFormat {
 
         public void UpdateVolume() {
             if( Volume == null ) return;
-            if( Volume is WaveFloatTo16Provider floatVolume ) {
+            if( Volume is SampleToWaveProvider16 floatVolume ) {
                 floatVolume.Volume = Plugin.Configuration.ScdVolume;
             }
             else if( Volume is VolumeWaveProvider16 pcmVolume ) {

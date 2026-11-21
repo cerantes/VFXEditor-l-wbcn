@@ -1,9 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
 using VfxEditor.Parsing.Int;
-using VfxEditor.TmbFormat.Utils;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C187 : TmbEntry {
         public const string MAGIC = "C187";
         public const string DISPLAY_NAME = "Remove Part";
@@ -15,8 +18,11 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedInt Duration = new( "Duration" );
         private readonly ParsedInt Unk1 = new( "Unknown 1" );
-        private readonly ParsedInt Part = new( "Part" );
-        private readonly ParsedIntByte4 Unk2 = new( "Unknown 2" );
+        private readonly ParsedShort Part = new( "Part" );
+        private readonly ParsedBool Inverse = new( "反转", size: 2 );
+        private readonly ParsedEnum<C187ObjectControl> ObjectControl = new( "Object Control", size: 2 );
+        private readonly ParsedByteBool Unk2 = new( "Unknown 2" );
+        private readonly ParsedByteBool NoDelay = new( "无延迟" );
         private readonly ParsedInt Unk3 = new( "Unknown 3" );
 
         public C187( TmbFile file ) : base( file ) { }
@@ -27,7 +33,10 @@ namespace VfxEditor.TmbFormat.Entries {
             Duration,
             Unk1,
             Part,
+            Inverse,
+            ObjectControl,
             Unk2,
+            NoDelay,
             Unk3
         ];
     }

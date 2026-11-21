@@ -1,17 +1,18 @@
-using Dalamud.Interface;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.FileManager;
 using VfxEditor.Formats.AvfxFormat.Texture;
 using VfxEditor.Select;
 using VfxEditor.Spawn;
 using VfxEditor.Utils;
 
-namespace VfxEditor.AvfxFormat {
-    public class AvfxDocument : FileManagerDocument<AvfxFile, WorkspaceMetaRenamed> {
+namespace VfxEditor.Formats.AvfxFormat {
+    public class AvfxDocument : FileManagerRenamedDocument<AvfxFile> {
         public override string Id => "Vfx";
         public override string Extension => "avfx";
 
@@ -20,10 +21,7 @@ namespace VfxEditor.AvfxFormat {
 
         public AvfxDocument( AvfxManager manager, string writeLocation ) : base( manager, writeLocation ) { }
 
-        public AvfxDocument( AvfxManager manager, string writeLocation, string localPath, WorkspaceMetaRenamed data ) : this( manager, writeLocation ) {
-            LoadWorkspace( localPath, data.RelativeLocation, data.Name, data.Source, data.Replace, data.Disabled );
-            File?.ReadRenamingMap( data.Renaming );
-        }
+        public AvfxDocument( AvfxManager manager, string writeLocation, string localPath, WorkspaceMetaRenamed data ) : base( manager, writeLocation, localPath, data ) { }
 
         public override void CheckKeybinds() {
             base.CheckKeybinds();
@@ -45,7 +43,7 @@ namespace VfxEditor.AvfxFormat {
             }
         }
 
-        protected override AvfxFile FileFromReader( BinaryReader reader, bool verify ) => new( reader, verify );
+        protected override AvfxFile FileFromReader( BinaryReader reader, string sourcePath, bool verify ) => new( reader, verify );
 
         public void Import( string path ) {
             if( File != null && System.IO.File.Exists( path ) ) File.Import( path );
@@ -54,67 +52,22 @@ namespace VfxEditor.AvfxFormat {
         public void OpenTemplate( string path ) =>
             SetSource( new SelectResult( SelectResultType.Local, "", "[模板]", Path.Combine( Plugin.RootLocation, "Files", path ) ) );
 
-        public override WorkspaceMetaRenamed GetWorkspaceMeta( string newPath, int windowIdx ) => new() {
-            Name = Name,
-            RelativeLocation = newPath,
-            Replace = Replace,
-            Source = Source,
-            Renaming = File.GetRenamingMap(),
-            Disabled = Disabled,
-            WindowIndex = windowIdx
-        };
-
         // ========= DRAWING =============
 
         protected override void DrawExtraColumn() {
-            using var padding = ImRaii.PushStyle( ImGuiStyleVar.FramePadding, new Vector2( 4, 3 ) );
-            using( var group = ImRaii.Group() ) {
-                if( VfxSpawn.IsActive ) {
-                    if( ImGui.Button( "移除", new Vector2( 60, ImGui.GetFrameHeight() ) ) ) VfxSpawn.Clear();
-                }
-                else {
-                    using var style = ImRaii.PushStyle( ImGuiStyleVar.Alpha, ImGui.GetStyle().Alpha * 0.5f, SpawnDisabled );
-                    if( ImGui.Button( "生成", new Vector2( 60, ImGui.GetFrameHeight() ) ) && !SpawnDisabled ) ImGui.OpenPopup( "SpawnPopup" );
-                }
-
-                using( var _ = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 2, 4 ) ) ) {
-                    ImGui.SameLine();
-                }
-
-                using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                    if( ImGui.Button( FontAwesomeIcon.Cog.ToIconString(), new Vector2( 28, ImGui.GetFrameHeight() ) ) ) ImGui.OpenPopup( "SettingsPopup" );
-                }
-
-                if( ImGui.Button( "库", new Vector2( 90, ImGui.GetFrameHeight() ) ) ) Plugin.LibraryManager.Show();
-            }
-
-            var height = ImGui.GetItemRectSize().Y;
-
-            using( var _ = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( ImGui.GetStyle().ItemSpacing.Y, 4 ) ) ) {
-                ImGui.SameLine();
-            }
-            Plugin.TrackerManager.Vfx.DrawEye( new Vector2( 40, height ) );
-
-            padding.Pop(); // so it doesn't mess with the popups
-
-            VfxSpawn.DrawPopup( SpawnPath, true );
-
-            if( ImGui.BeginPopup( "SettingsPopup" ) ) {
-                if( ImGui.Checkbox( "循环", ref Plugin.Configuration.VfxSpawnLoop ) ) Plugin.Configuration.Save();
-                ImGui.SetNextItemWidth( 150 );
-                if( ImGui.InputFloat( "延迟", ref Plugin.Configuration.VfxSpawnDelay ) ) Plugin.Configuration.Save();
-                ImGui.EndPopup();
-            }
+            var space = ImGui.GetContentRegionAvail();
+            ImGui.SetCursorPosX( ImGui.GetCursorPosX() + ( space.X - 30 ) );
+            Plugin.TrackerManager.Vfx.DrawEye( new Vector2( 30, ImGui.GetFrameHeight() * 2 + ImGui.GetStyle().ItemSpacing.Y ) );
         }
 
         protected override string GetWarningText() {
-            var invalidTimeline = File.TimelineView.Group.Items.Where( timeline => timeline.Items.Any( item => !item.HasValue ) ).FirstOrDefault();
+            var invalidTimeline = File.TimelineView.Group.Items.FirstOrDefault( timeline => timeline.Items.Any( item => !item.HasValue ) );
             if( invalidTimeline == null ) return "";
             return $"时间线 [{invalidTimeline.GetText()}] 缺少数值";
         }
 
-        protected override void DisplayFileControls() {
-            base.DisplayFileControls();
+        protected override void DrawControls() {
+            base.DrawControls();
 
             if( File.TextureView.Group.Items.Where( x => !x.FileExists() ).Any() ) {
                 ImGui.SameLine();
@@ -130,6 +83,25 @@ namespace VfxEditor.AvfxFormat {
                 }
                 UiUtils.Tooltip( "导入缺失材质" );
             }
+        }
+
+        protected override float GetExtraControlsWidth() => 60 + 5;
+
+        protected override void DrawExtraControls() {
+            using( ImRaii.PushFont( UiBuilder.IconFont ) ) {
+                using( ImRaii.Disabled( SpawnDisabled ) ) {
+                    if( ImGui.Button( FontAwesomeIcon.PaintBrush.ToIconString(), new Vector2( 30, ImGui.GetFrameHeight() ) ) && !SpawnDisabled ) ImGui.OpenPopup( "SpawnPopup" );
+                }
+                UiUtils.Tooltip( "将选中的特效生成到游戏世界中（需要同时选择源特效和替换特效）" );
+
+                using( var spacing = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 5f, 0f ) ) ) {
+                    ImGui.SameLine();
+                }
+                if( ImGui.Button( FontAwesomeIcon.Book.ToIconString(), new Vector2( 30, ImGui.GetFrameHeight() ) ) ) Plugin.LibraryManager.Show();
+                UiUtils.Tooltip( "打开特效组件与材质库" );
+            }
+
+            if( !SpawnDisabled ) VfxSpawn.DrawPopup( SpawnPath, true );
         }
     }
 }

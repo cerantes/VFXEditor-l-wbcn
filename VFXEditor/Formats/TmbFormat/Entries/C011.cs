@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C011 : TmbEntry {
         public const string MAGIC = "C011";
         public const string DISPLAY_NAME = "漂浮文本";
@@ -12,7 +14,7 @@ namespace VfxEditor.TmbFormat.Entries {
         public override int Size => 0x14;
         public override int ExtraSize => 0;
 
-        private readonly ParsedInt Unk1 = new( "未知 1" );
+        private readonly ParsedBool Enabled = new( "启用" );
         private readonly ParsedInt Unk2 = new( "未知 2" );
 
         public C011( TmbFile file ) : base( file ) { }
@@ -20,7 +22,7 @@ namespace VfxEditor.TmbFormat.Entries {
         public C011( TmbFile file, TmbReader reader ) : base( file, reader ) { }
 
         protected override List<ParsedBase> GetParsed() => [
-            Unk1,
+            Enabled,
             Unk2
         ];
     }

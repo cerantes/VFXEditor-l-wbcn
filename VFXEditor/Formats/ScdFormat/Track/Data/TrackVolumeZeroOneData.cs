@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Track.Data {
     public class TrackVolumeZeroOneData : ScdTrackData {
         public readonly ParsedByte Version = new( "版本" );
         private byte Reserved1;

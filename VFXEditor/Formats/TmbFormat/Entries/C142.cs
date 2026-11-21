@@ -1,14 +1,11 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
-    public enum FreezePositionType {
-        Target_FixedDirection,
-        Target_UserFacingDirection,
-        Return
-    }
-
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C142 : TmbEntry {
         public const string MAGIC = "C142";
         public const string DISPLAY_NAME = "冻结位置";

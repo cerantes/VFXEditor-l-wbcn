@@ -2,6 +2,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.FileBrowser.FolderFiles;
 
 namespace VfxEditor.FileBrowser {
@@ -13,7 +14,7 @@ namespace VfxEditor.FileBrowser {
             style.Push( ImGuiStyleVar.ItemSpacing, new Vector2( 0, 0 ) );
             style.Push( ImGuiStyleVar.CellPadding, new Vector2( 0, 0 ) );
             using var child = ImRaii.Child( "Child", size );
-            using var table = ImRaii.Table( "Table", 4, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.Hideable );
+            using var table = ImRaii.Table( "Table", 4, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.Resizable | ImGuiTableFlags.BordersInnerV | ImGuiTableFlags.NoPadOuterX | ImGuiTableFlags.Hideable | ImGuiTableFlags.NoSavedSettings );
             style.Dispose();
 
             ImGui.TableSetupColumn( "##SideBar", ImGuiTableColumnFlags.WidthFixed, 150 );
@@ -48,7 +49,8 @@ namespace VfxEditor.FileBrowser {
                 ImGuiTableFlags.RowBg |
                 ImGuiTableFlags.Hideable |
                 ImGuiTableFlags.ScrollY |
-                ImGuiTableFlags.NoHostExtendX );
+                ImGuiTableFlags.NoHostExtendX |
+                ImGuiTableFlags.NoSavedSettings );
             if( !table ) return;
 
             ImGui.TableSetupScrollFreeze( 0, 1 );

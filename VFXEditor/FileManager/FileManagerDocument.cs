@@ -5,9 +5,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.FileManager.Interfaces;
+using VfxEditor.Interop.Penumbra;
 using VfxEditor.Select;
 using VfxEditor.Ui.Export;
+using VfxEditor.Ui.Import;
 using VfxEditor.Utils;
 
 namespace VfxEditor.FileManager {
@@ -44,75 +47,95 @@ namespace VfxEditor.FileManager {
             WriteLocation = writeLocation;
         }
 
+        public bool GetActiveReplacement( out string gamePath, out string localPath ) {
+            gamePath = ReplacePath;
+            localPath = WriteLocation;
+            return File != null && !string.IsNullOrEmpty( gamePath ) && !string.IsNullOrEmpty( localPath );
+        }
+
         public bool GetReplacePath( string path, out string replacePath ) {
             replacePath = null;
             if( File == null ) return false;
 
-            replacePath = ReplacePath.ToLower().Equals( path.ToLower() ) ? WriteLocation : null;
+            replacePath = string.Equals( ReplacePath, path, StringComparison.OrdinalIgnoreCase ) ? WriteLocation : null;
             return !string.IsNullOrEmpty( replacePath );
         }
 
-        protected abstract R FileFromReader( BinaryReader reader, bool verify );
+        protected abstract R FileFromReader( BinaryReader reader, string sourcePath, bool verify );
 
-        protected void LoadLocal( string path, bool verify ) {
+        private static void LoadError( string message ) {
+            Dalamud.Error( message );
+            Dalamud.ErrorNotification( message );
+        }
+
+        protected bool LoadLocal( string path, string sourcePath, bool verify ) {
             if( !System.IO.File.Exists( path ) ) {
-                Dalamud.Error( $"本地文件: [{path}] 不存在" );
-                return;
+                LoadError( $"本地文件不存在：{path}" );
+                return false;
             }
 
-            if( !path.EndsWith( $".{Extension}" ) ) {
-                Dalamud.Error( $"{path} 文件类型非法" );
-                return;
+            if( !path.EndsWith( $".{Extension}", StringComparison.OrdinalIgnoreCase ) ) {
+                LoadError( $"文件类型错误，应为 .{Extension}：{path}" );
+                return false;
             }
 
             try {
-                using var reader = new BinaryReader( System.IO.File.Open( path, FileMode.Open ) );
-                File?.Dispose();
-                File = FileFromReader( reader, verify );
+                using var reader = new BinaryReader( System.IO.File.OpenRead( path ) );
+                SwapFile( FileFromReader( reader, sourcePath, verify ) );
+                return true;
             }
             catch( Exception e ) {
                 Dalamud.Error( e, $"读取文件时发生错误: {path}" );
-                Dalamud.ErrorNotification( "读取文件时发生错误" );
+                Dalamud.ErrorNotification( $"读取文件时发生错误: {path}" );
+                return false;
             }
         }
 
-        protected void LoadGame( string path, bool verify ) {
+        protected bool LoadGame( string path, string sourcePath, bool verify ) {
             if( !Dalamud.DataManager.FileExists( path ) ) {
-                Dalamud.Error( $"游戏文件: [{path}] 不存在" );
-                return;
+                LoadError( $"游戏文件不存在：{path}" );
+                return false;
             }
 
-            if( !path.EndsWith( $".{Extension}" ) ) {
-                Dalamud.Error( $"{path} 文件类型非法" );
-                return;
+            if( !path.EndsWith( $".{Extension}", StringComparison.OrdinalIgnoreCase ) ) {
+                LoadError( $"文件类型错误，应为 .{Extension}：{path}" );
+                return false;
             }
 
             try {
                 var file = Dalamud.DataManager.GetFile( path );
                 using var ms = new MemoryStream( file.Data );
                 using var reader = new BinaryReader( ms );
-                File?.Dispose();
-                File = FileFromReader( reader, verify );
+                SwapFile( FileFromReader( reader, sourcePath, verify ) );
+                return true;
             }
             catch( Exception e ) {
-                Dalamud.Error( e, $"读取文件时发生错误 {path}");
-                Dalamud.ErrorNotification( $"读取文件时发生错误 {path}");
+                Dalamud.Error( e, $"读取文件时发生错误: {path}" );
+                Dalamud.ErrorNotification( $"读取文件时发生错误: {path}" );
+                return false;
             }
+        }
+
+        private void SwapFile( R newFile ) {
+            var oldFile = File;
+            File = newFile;
+            oldFile?.Dispose();
         }
 
         // =================
 
-        public void SetSource( SelectResult result ) {
-            if( result == null ) return;
+        // Returns false if the file couldn't be loaded, in which case the previous source and file are kept
+        public bool SetSource( SelectResult result ) {
+            if( result == null ) return false;
+
+            var loaded = result.Type == SelectResultType.Local ? LoadLocal( result.Path, result.Path, true ) : LoadGame( result.Path, result.Path, true );
+            if( !loaded ) return false;
+
             Source = result;
             SourceTextInput = "";
-
-            if( result.Type == SelectResultType.Local ) LoadLocal( result.Path, true );
-            else LoadGame( result.Path, true );
-
-            if( File != null ) {
-                WriteFile( WriteLocation );
-            }
+            WriteFile( WriteLocation );
+            PenumbraTempMod.MarkDirty();
+            return true;
         }
 
         protected void RemoveSource() {
@@ -120,17 +143,22 @@ namespace VfxEditor.FileManager {
             File = null;
             Source = null;
             SourceTextInput = "";
+
+            PenumbraTempMod.MarkDirty();
         }
 
         public void SetReplace( SelectResult result ) {
             Replace = result;
             ReplaceTextInput = "";
-            Plugin.AddCustomBackupLocation( Replace, WriteLocation );
+
+            PenumbraTempMod.MarkDirty();
         }
 
-        protected void RemoveReplace() {
+        protected virtual void RemoveReplace() {
             Replace = null;
             ReplaceTextInput = "";
+
+            PenumbraTempMod.MarkDirty();
         }
 
         // =====================
@@ -152,13 +180,8 @@ namespace VfxEditor.FileManager {
             var newWriteLocation = Manager.NewWriteLocation;
             WriteFile( newWriteLocation );
             WriteLocation = newWriteLocation;
-            Plugin.AddCustomBackupLocation( Replace, WriteLocation );
 
-            if( File != null && !ReplacePath.Contains( ".sklb" ) ) {
-                Plugin.ResourceLoader.ReloadPath( ReplacePath, WriteLocation, File.GetPapIds(), File.GetPapTypes() );
-            }
-
-            Plugin.ResourceLoader.ReRender();
+            PenumbraTempMod.MarkDirty();
         }
 
         // =======================
@@ -172,7 +195,7 @@ namespace VfxEditor.FileManager {
             SourceTextInput = "";
             ReplaceTextInput = "";
 
-            LoadLocal( WorkspaceUtils.ResolveWorkspacePath( relativeLocation, localPath ), false );
+            LoadLocal( WorkspaceUtils.ResolveWorkspacePath( relativeLocation, localPath ), source?.Path, false );
             File?.Verified = VerifiedStatus.WORKSPACE;
             WriteFile( WriteLocation );
         }
@@ -183,7 +206,9 @@ namespace VfxEditor.FileManager {
 
         public bool CanExport() => File != null && !string.IsNullOrEmpty( ReplacePath );
 
-        public void PenumbraExport( string modFolder, string groupOption, Dictionary<string, string> filesOut ) {
+        public virtual void PenumbraExportManipulations( List<object> manipulationsOut ) { }
+
+        public virtual void PenumbraExport( string modFolder, string groupOption, Dictionary<string, string> filesOut ) {
             var path = ReplacePath;
             if( string.IsNullOrEmpty( path ) || File == null ) return;
             var data = File.ToBytes();
@@ -223,14 +248,14 @@ namespace VfxEditor.FileManager {
                 return;
             }
 
-            var searchWidth = ImGui.GetContentRegionAvail().X - 160 - 125;
+            var searchWidth = ImGui.GetContentRegionAvail().X - 20 - 125;
 
             using( var style = ImRaii.PushStyle( ImGuiStyleVar.WindowPadding, new Vector2( 0 ) ) )
             using( var _ = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 0 ) ) ) {
                 ImGui.Columns( 3, "列", false );
-                ImGui.SetColumnWidth( 0, 120 );
+                ImGui.SetColumnWidth( 0, 20 );
             }
-            DrawInputTextColumn();
+            DrawArrowColumn();
 
             using( var _ = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 0 ) ) ) {
                 ImGui.NextColumn();
@@ -249,7 +274,7 @@ namespace VfxEditor.FileManager {
             DrawBody();
         }
 
-        protected virtual void DrawInputTextColumn() {
+        protected virtual void DrawArrowColumn() {
             var pos = ImGui.GetCursorScreenPos() + new Vector2( 5, 0 );
             var height = ImGui.GetFrameHeight();
             var spacing = ImGui.GetStyle().ItemSpacing.Y;
@@ -271,13 +296,16 @@ namespace VfxEditor.FileManager {
             var hovered = ImGui.IsWindowFocused( ImGuiFocusedFlags.RootWindow ) && ImGui.IsMouseHoveringRect( topLeft - new Vector2( 5, 5 ), bottomRight + new Vector2( 5, 5 ) );
 
             var color = hovered ?
-                ImGui.ColorConvertFloat4ToU32( UiUtils.DALAMUD_ORANGE ) :
+                ImGui.ColorConvertFloat4ToU32( UiUtils.YELLOW_ACCENT ) :
                 ( Disabled ?
                     ImGui.ColorConvertFloat4ToU32( UiUtils.RED_COLOR ) :
                     ImGui.GetColorU32( ImGuiCol.TextDisabled )
                );
 
-            if( hovered && ImGui.IsMouseClicked( ImGuiMouseButton.Left ) ) Disabled = !Disabled;
+            if( hovered && ImGui.IsMouseClicked( ImGuiMouseButton.Left ) ) {
+                Disabled = !Disabled;
+                PenumbraTempMod.MarkDirty();
+            }
 
             var topLeftCurveCenter = new Vector2( topLeft.X + radius, topLeft.Y + radius );
             var bottomLeftCurveCenter = new Vector2( bottomLeft.X + radius, bottomLeft.Y - radius );
@@ -293,7 +321,7 @@ namespace VfxEditor.FileManager {
             drawList.AddLine( bottomLeft + new Vector2( radius - 0.5f, -0.5f ), bottomRight + new Vector2( -4, -0.5f ), color, thickness );
 
             if( Disabled ) {
-                var crossCenter = bottomRight + new Vector2( -4, 0 );
+                var crossCenter = ( topLeft + ( bottomLeft - topLeft ) / 2 ) + new Vector2( -0.5f, 0f );
                 var crossHeight = arrowHeight / 2;
 
                 drawList.AddLine( crossCenter + new Vector2( crossHeight, crossHeight ), crossCenter + new Vector2( -crossHeight, -crossHeight ), color, thickness );
@@ -304,14 +332,6 @@ namespace VfxEditor.FileManager {
             }
 
             if( hovered ) UiUtils.Tooltip( "切换替换模式", true );
-
-            ImGui.SetCursorPosY( ImGui.GetCursorPosY() + 2 );
-            ImGui.SetCursorPosX( ImGui.GetCursorPosX() + 25 );
-            ImGui.Text( $"原始 {Id}" );
-
-            ImGui.SetCursorPosY( ImGui.GetCursorPosY() + 5 );
-            ImGui.SetCursorPosX( ImGui.GetCursorPosX() + 25 );
-            ImGui.Text( $"替换 {Id}" );
         }
 
         private static float DegreesToRadians( float degrees ) => MathF.PI / 180 * degrees;
@@ -320,7 +340,7 @@ namespace VfxEditor.FileManager {
             var timesWidth = UiUtils.GetPaddedIconSize( FontAwesomeIcon.Times );
             var searchWidth = UiUtils.GetPaddedIconSize( FontAwesomeIcon.Search );
             // 3 * 2 for spacing, 25 for some more padding
-            var inputWidth = ImGui.GetColumnWidth() - timesWidth - searchWidth - ( 3 * 2 ) - 20;
+            var inputWidth = Math.Min( 550, ImGui.GetColumnWidth() - timesWidth - searchWidth - ( 3 * 2 ) - 20 );
 
             DisplaySourceBar( inputWidth );
             DisplayReplaceBar( inputWidth );
@@ -334,37 +354,43 @@ namespace VfxEditor.FileManager {
             using var _ = ImRaii.PushId( "Source" );
             using var style = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 3, 4 ) );
 
-            var reloadWidth = UiUtils.GetIconSize( FontAwesomeIcon.Sync ).X;
-            var replaceWidth = UiUtils.GetIconSize( FontAwesomeIcon.Upload ).Y;
-
-            inputSize -= ( reloadWidth + replaceWidth + ( ImGui.GetStyle().FramePadding.X * 4 ) + 6 );
-
-            // Remove
-            using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( UiUtils.TransparentButton( FontAwesomeIcon.Times.ToIconString(), UiUtils.RED_COLOR ) ) RemoveSource();
+            if( LocalSource ) {
+                var reloadWidth = UiUtils.GetIconSize( FontAwesomeIcon.Sync ).X;
+                var replaceWidth = UiUtils.GetIconSize( FontAwesomeIcon.Upload ).X;
+                inputSize -= ( reloadWidth + replaceWidth + ( ImGui.GetStyle().FramePadding.X * 4 ) + 6 );
             }
 
-            if( DrawBar( inputSize, SourceDisplay, ref SourceTextInput, Source, Manager.SourceSelect.Focused, out var result ) ) SetSource( result );
+            using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
+                if( ImGui.Button( FontAwesomeIcon.Search.ToIconString() ) ) Manager.ShowSource();
+            }
+
+            // A source is only set once it has loaded successfully, so it is always valid
+            if( DrawBar( inputSize, Source == null ? "选择要使用的文件" : SourceDisplay, ref SourceTextInput, Source, GamePathStatus.Valid, null, Manager.SourceSelect.Focused, out var result ) ) {
+                if( SetSource( result ) ) Plugin.Configuration.AddRecent( Manager.Configuration.RecentItems, result );
+            }
 
             // Local files
-            using( var disabled = ImRaii.Disabled( !LocalSource ) )
-            using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
+            if( LocalSource ) {
+                using var font = ImRaii.PushFont( UiBuilder.IconFont );
                 ImGui.SameLine();
                 if( ImGui.Button( FontAwesomeIcon.Sync.ToIconString() ) ) {
-                    Manager.SetSource( Source );
-                    Dalamud.OkNotification( "已重新加载 " + Source.Path );
+                    if( SetSource( Source ) ) Dalamud.OkNotification( "已重新加载" + Source.Path );
                 }
+                UiUtils.Tooltip( "从磁盘重新加载源文件" );
                 ImGui.SameLine();
-                if( ImGui.Button( FontAwesomeIcon.Upload.ToIconString() ) ) {
+                if( ImGui.Button( FontAwesomeIcon.Upload.ToIconString() ) && File != null ) {
                     System.IO.File.WriteAllBytes( Source.Path, File.ToBytes() );
                     Dalamud.OkNotification( "已导出至 " + Source.Path );
                 }
+                UiUtils.Tooltip( "用你的修改覆盖磁盘上的源文件" );
             }
 
-            // Search
             ImGui.SameLine();
-            using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( ImGui.Button( FontAwesomeIcon.Search.ToIconString() ) ) Manager.ShowSource();
+            using( ImRaii.Disabled( Source == null ) ) {
+                using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
+                    if( UiUtils.TransparentButton( FontAwesomeIcon.Times.ToIconString(), UiUtils.RED_COLOR ) ) RemoveSource();
+                }
+                UiUtils.Tooltip( "Clear", ImGui.IsItemHovered() );
             }
         }
 
@@ -372,37 +398,43 @@ namespace VfxEditor.FileManager {
             using var _ = ImRaii.PushId( "Replace" );
             using var style = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( 3, 4 ) );
 
-            // Remove
-            using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( UiUtils.TransparentButton( FontAwesomeIcon.Times.ToIconString(), UiUtils.RED_COLOR ) ) RemoveReplace();
-            }
-
-            if( DrawBar( inputSize, ReplaceDisplay, ref ReplaceTextInput, Replace, Manager.ReplaceSelect.Focused, out var result ) ) SetReplace( result );
-
-            // Search
-            ImGui.SameLine();
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
                 if( ImGui.Button( FontAwesomeIcon.Search.ToIconString() ) ) Manager.ShowReplace();
             }
+
+            var status = GamePathUtils.GetReplaceStatus( Replace, Extension, out var statusMessage );
+            if( DrawBar( inputSize, Replace == null ? "选择要替换的文件" : ReplaceDisplay, ref ReplaceTextInput, Replace, status, statusMessage, Manager.ReplaceSelect.Focused, out var result ) ) {
+                SetReplace( result );
+                Plugin.Configuration.AddRecent( Manager.Configuration.RecentItems, result );
+            }
+
+            ImGui.SameLine();
+            using( ImRaii.Disabled( Replace == null ) ) {
+                using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
+                    if( UiUtils.TransparentButton( FontAwesomeIcon.Times.ToIconString(), UiUtils.RED_COLOR ) ) RemoveReplace();
+                }
+                UiUtils.Tooltip( "Clear", ImGui.IsItemHovered() );
+            }
         }
 
-        private bool DrawBar( float inputSize, string display, ref string inputText, SelectResult selectResult, bool highlight, out SelectResult result ) {
+        private bool DrawBar( float inputSize, string display, ref string inputText, SelectResult selectResult, GamePathStatus status, string statusMessage, bool highlight, out SelectResult result ) {
             using var border = ImRaii.PushStyle( ImGuiStyleVar.FrameBorderSize, 2f, highlight );
-            using var borderColor = ImRaii.PushColor( ImGuiCol.Border, UiUtils.DALAMUD_YELLOW, highlight );
+            using var borderColor = ImRaii.PushColor( ImGuiCol.Border, UiUtils.YELLOW_ACCENT, highlight );
 
             var edited = false;
             result = null;
 
             ImGui.SameLine();
             ImGui.SetNextItemWidth( inputSize );
-            using( var color = ImRaii.PushColor( ImGuiCol.TextDisabled, UiUtils.DALAMUD_YELLOW, selectResult != null ) ) {
+            // While typing the text is white, once a path is selected the hint is colored by whether it is valid
+            using( var color = ImRaii.PushColor( ImGuiCol.TextDisabled, GamePathUtils.GetStatusColor( status ), selectResult != null ) ) {
                 if( ImGui.InputTextWithHint( "", display, ref inputText, 255, ImGuiInputTextFlags.EnterReturnsTrue ) ) {
                     var cleanedPath = inputText.Trim().Replace( "\\", "/" );
                     result = new SelectResult( SelectResultType.GamePath, cleanedPath, $"[GAME] {cleanedPath}", cleanedPath );
                     edited = true;
-                    Plugin.Configuration.AddRecent( Manager.Configuration.RecentItems, result );
                 }
             }
+            if( selectResult != null && !string.IsNullOrEmpty( statusMessage ) && string.IsNullOrEmpty( inputText ) ) UiUtils.Tooltip( statusMessage );
             DrawCopy( selectResult );
             return edited;
         }
@@ -421,17 +453,31 @@ namespace VfxEditor.FileManager {
 
         // ==========================
 
-        protected virtual void DisplayFileControls() {
-            if( UiUtils.OkButton( "刷新" ) ) Update();
+        protected virtual void DrawControls() {
+            using( ImRaii.PushStyle( ImGuiStyleVar.FramePadding, new Vector2( 20, ImGui.GetStyle().FramePadding.Y ) ) )
+            using( ImRaii.PushColor( ImGuiCol.Button, UiUtils.ACCENT_COLOR ) ) {
+                if( ImGui.Button( "刷新" ) ) Update();
+            }
+            UiUtils.Tooltip( "将你的修改应用到游戏中" );
+
+            File.Command.DrawButtons();
 
             using( var spacing = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, ImGui.GetStyle().ItemInnerSpacing ) ) {
                 ImGui.SameLine();
             }
-            using( var style = ImRaii.PushStyle( ImGuiStyleVar.FramePadding, ImGui.GetStyle().FramePadding + new Vector2( 0, 1 ) ) )
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( ImGui.Button( FontAwesomeIcon.Download.ToIconString() ) ) ExportRawDialog();
+                if( ImGui.Button( FontAwesomeIcon.Save.ToIconString() ) ) ImGui.OpenPopup( "SaveButtonPopup" );
             }
-            UiUtils.Tooltip( "导出为原始文件" );
+            UiUtils.Tooltip( "导出你的修改" );
+
+            using( var popup = ImRaii.Popup( "SaveButtonPopup" ) ) {
+                if( popup ) {
+                    if( ImGui.Selectable( "Penumbra 模组" ) ) Plugin.PenumbraExportDialog.Show();
+                    if( ImGui.Selectable( "TexTools 模组" ) ) Plugin.TexToolsExportDialog.Show();
+                    ImGui.Separator();
+                    if( ImGui.Selectable( "仅导出此文件" ) ) ExportRawDialog();
+                }
+            }
 
             ImGui.SameLine();
             UiUtils.ShowVerifiedStatus( Verified );
@@ -447,6 +493,10 @@ namespace VfxEditor.FileManager {
             }
         }
 
+        protected virtual float GetExtraControlsWidth() => 0;
+
+        protected virtual void DrawExtraControls() { }
+
         protected virtual string GetWarningText() => "";
 
         protected virtual void DrawBody() {
@@ -459,7 +509,14 @@ namespace VfxEditor.FileManager {
                 return;
             }
 
-            DisplayFileControls();
+            DrawControls();
+
+            if( GetExtraControlsWidth() > 0 ) {
+                var space = ImGui.GetContentRegionAvail();
+                ImGui.SameLine( space.X - GetExtraControlsWidth() + ImGui.GetStyle().ItemSpacing.X );
+                DrawExtraControls();
+            }
+
             ImGui.SetCursorPosY( ImGui.GetCursorPosY() + 5 );
 
             using var _ = ImRaii.PushId( "Body" );
@@ -469,7 +526,7 @@ namespace VfxEditor.FileManager {
         public void DrawRename() {
             Name ??= "";
             using var _ = ImRaii.PushId( "Rename" );
-            ImGui.InputTextWithHint( "", ReplaceDisplay, ref Name, 64, ImGuiInputTextFlags.AutoSelectAll );
+            ImGui.InputTextWithHint( "", $"重命名：{ReplaceDisplay}", ref Name, 64, ImGuiInputTextFlags.AutoSelectAll );
         }
 
         public virtual void Dispose() {
@@ -483,7 +540,7 @@ namespace VfxEditor.FileManager {
             ImGui.SetCursorPosY( ImGui.GetCursorPosY() + 15 );
 
             var availWidth = ImGui.GetContentRegionMax().X;
-            var width = availWidth > 500 ? 500 : availWidth; // cap out at 300
+            var width = Math.Min( availWidth, 500 );
             ImGui.SetCursorPosX( ImGui.GetCursorPosX() + ( availWidth - width ) / 2 );
             using var child = ImRaii.Child( "HelpTextChild", new Vector2( width, -1 ) );
 

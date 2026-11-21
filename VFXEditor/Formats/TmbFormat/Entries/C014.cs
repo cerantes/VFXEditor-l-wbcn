@@ -1,8 +1,12 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C014 : TmbEntry {
         public const string MAGIC = "C014";
         public const string DISPLAY_NAME = "武器位置";
@@ -14,7 +18,7 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedBool Enabled = new( "启用" );
         private readonly ParsedInt Unk2 = new( "未知 2" );
-        private readonly ParsedEnum<ObjectControlPosition> ObjectPosition = new( "物体位置" );
+        private readonly ParsedEnum<AtchState> ObjectPosition = new( "物体位置" );
         private readonly ParsedEnum<ObjectControl> ObjectControl = new( "物体控制" );
 
         public C014( TmbFile file ) : base( file ) { }

@@ -1,7 +1,8 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.Utils;
 
 namespace VfxEditor.FileBrowser {
@@ -15,7 +16,7 @@ namespace VfxEditor.FileBrowser {
             if( !Visible ) return false;
 
             var done = false;
-            var name = $"{Title}##{Id}";
+            var name = UiUtils.WindowId( $"{Title}##{Id}" );
 
             IsOk = false;
             WantsToQuit = false;
@@ -88,12 +89,13 @@ namespace VfxEditor.FileBrowser {
                     }
 
                     ImGui.SameLine();
-                    using var style = ImRaii.PushColor( ImGuiCol.Button, UiUtils.RED_COLOR );
-                    if( ImGui.Button( "取消", new Vector2( 120, 0 ) ) ) {
-                        WaitingForConfirmation = false;
-                        IsOk = false;
-                        confirmed = false;
-                        ImGui.CloseCurrentPopup();
+                    using( ImRaii.PushColor( ImGuiCol.Button, UiUtils.RED_COLOR ) ) {
+                        if( ImGui.Button( "取消", new Vector2( 120, 0 ) ) ) {
+                            WaitingForConfirmation = false;
+                            IsOk = false;
+                            confirmed = false;
+                            ImGui.CloseCurrentPopup();
+                        }
                     }
 
                     ImGui.EndPopup();

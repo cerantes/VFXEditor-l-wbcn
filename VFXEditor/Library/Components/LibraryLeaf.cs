@@ -48,7 +48,7 @@ namespace VfxEditor.Library.Components {
 
             DrawHeader();
             DrawTooltip();
-            DragDrop( library, Name, ref listModified );
+            if( library.DragDropManager.DragDrop( this, Parent ) ) listModified = true;
 
             if( DrawPopup( library ) ) listModified = true;
 
@@ -67,6 +67,7 @@ namespace VfxEditor.Library.Components {
                     library.Save();
                     listModified = true;
                 }
+                UiUtils.Tooltip( "保存修改" );
             }
 
             DrawEditing();

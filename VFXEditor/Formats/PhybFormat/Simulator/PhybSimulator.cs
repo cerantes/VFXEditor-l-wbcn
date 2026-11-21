@@ -8,19 +8,20 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
-using VfxEditor.PhybFormat.Simulator.Attract;
-using VfxEditor.PhybFormat.Simulator.Chain;
-using VfxEditor.PhybFormat.Simulator.CollisionData;
-using VfxEditor.PhybFormat.Simulator.Connector;
-using VfxEditor.PhybFormat.Simulator.Pin;
-using VfxEditor.PhybFormat.Simulator.PostAlignment;
-using VfxEditor.PhybFormat.Simulator.Spring;
-using VfxEditor.PhybFormat.Utils;
+using VfxEditor.Formats.PhybFormat.Simulator.Attract;
+using VfxEditor.Formats.PhybFormat.Simulator.Chain;
+using VfxEditor.Formats.PhybFormat.Simulator.CollisionData;
+using VfxEditor.Formats.PhybFormat.Simulator.Connector;
+using VfxEditor.Formats.PhybFormat.Simulator.Pin;
+using VfxEditor.Formats.PhybFormat.Simulator.PostAlignment;
+using VfxEditor.Formats.PhybFormat.Simulator.Spring;
+using VfxEditor.Formats.PhybFormat.Utils;
 using VfxEditor.Ui.Components;
+using VfxEditor.Ui.Components.Dropdowns;
 using VfxEditor.Ui.Components.SplitViews;
 using VfxEditor.Ui.Interfaces;
 
-namespace VfxEditor.PhybFormat.Simulator {
+namespace VfxEditor.Formats.PhybFormat.Simulator {
     public class PhybSimulator : IUiItem, IPhysicsObject {
         public readonly PhybFile File;
 
@@ -221,6 +222,8 @@ namespace VfxEditor.PhybFormat.Simulator {
             MatrixHelper.DecomposeUniformScale( bone1.BindPose, out var _, out var _, out var pos1 );
             MatrixHelper.DecomposeUniformScale( bone2.BindPose, out var _, out var _, out var pos2 );
 
+            if( ( pos1 - pos2 ).Length() < 0.0001f ) return; // degenerate, cannot draw
+
             builder.AddCylinder( pos1, pos2, radius * 2f, 10 );
         }
 
@@ -238,7 +241,10 @@ namespace VfxEditor.PhybFormat.Simulator {
 
             var axisOffset = new Vector3( node.ConeAxisOffset.Value.Y, node.ConeAxisOffset.Value.X, -node.ConeAxisOffset.Value.Z );
             var axisPos = Vector4Helper.Transform( axisOffset.AsVector4(), ref nodeBone.BindPose ).ToVector3();
-            var norm = Vector3.Normalize( axisPos - nodeStart );
+            var axisDiff = axisPos - nodeStart;
+            if( axisDiff.Length() < 0.0001f ) return; // degenerate cone axis, cannot draw
+
+            var norm = Vector3.Normalize( axisDiff );
 
             // var boneDiff = bonePos - nodeStart;
             // var closest = norm * Vector3.Dot( boneDiff, norm );
@@ -250,8 +256,9 @@ namespace VfxEditor.PhybFormat.Simulator {
             var angle = node.ConeMaxAngle.Value;
             // tan(angle) = radius / distance
             var radius = Math.Tan( angle ) * distance;
+            if( !float.IsFinite( ( float )radius ) ) return; // NaN/infinity radius, cannot draw
 
-            builder.AddCone( coneStart, coneEnd, ( float )radius , false, 10 );
+            builder.AddCone( coneStart, coneEnd, ( float )radius, false, 10 );
         }
 
         public bool GetNode( int chainId, int nodeId, Dictionary<string, Bone> boneMatrixes, out Bone bone, out PhybNode node ) {

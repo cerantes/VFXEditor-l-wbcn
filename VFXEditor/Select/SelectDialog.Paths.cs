@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using VfxEditor.Select.Tabs.BgmQuest;
+using VfxEditor.Utils;
 
 namespace VfxEditor.Select {
     public partial class SelectDialog {
@@ -112,7 +113,7 @@ namespace VfxEditor.Select {
             using var style = ImRaii.PushStyle( ImGuiStyleVar.CellPadding, new Vector2( 4, 4 ) );
             using var padding = ImRaii.PushStyle( ImGuiStyleVar.WindowPadding, new Vector2( 0, 0 ) );
             using var table = ImRaii.Table( "Table", 5,
-                ImGuiTableFlags.RowBg | ImGuiTableFlags.NoHostExtendX | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.PadOuterX | ImGuiTableFlags.Hideable );
+                ImGuiTableFlags.RowBg | ImGuiTableFlags.NoHostExtendX | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.PadOuterX | ImGuiTableFlags.Hideable | ImGuiTableFlags.NoSavedSettings );
             if( !table ) return;
             padding.Dispose();
 
@@ -171,6 +172,7 @@ namespace VfxEditor.Select {
 
             ImGui.TableNextColumn(); // Controls
             if( ImGui.Button( FontAwesomeIcon.Check.ToIconString() ) ) Invoke( SelectUiUtils.GetSelectResult( path, resultType, resultName ) );
+            UiUtils.Tooltip( "选择此文件" );
             ImGui.SameLine();
             SelectUiUtils.Copy( path );
 

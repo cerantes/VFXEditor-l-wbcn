@@ -1,10 +1,13 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System.IO;
 using System.Numerics;
 using VfxEditor.Formats.ShpkFormat.Shaders;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Float;
 using VfxEditor.Parsing.Int;
+using VfxEditor.Parsing.Reserve;
 using VfxEditor.Ui.Interfaces;
 
 namespace VfxEditor.Formats.MtrlFormat.Shader {
@@ -53,7 +56,9 @@ namespace VfxEditor.Formats.MtrlFormat.Shader {
             Flags.Value = Masked( flags );
             AddressModeU.Value = ( TextureAddressMode )( flags & 0x3u );
             AddressModeV.Value = ( TextureAddressMode )( ( flags >> 2 ) & 0x3u );
-            LoDBias.Value = ( ( flags >> 10 ) & 0x3FF ) / 64f;
+            var lodRaw = ( int )( ( flags >> 10 ) & 0x3FF );
+            if( lodRaw >= 512 ) lodRaw -= 1024; // top bit of the 10-bit field is the sign
+            LoDBias.Value = lodRaw / 64f;
             MinLoD.Value = ( ( flags >> 20 ) & 0xF );
         }
 

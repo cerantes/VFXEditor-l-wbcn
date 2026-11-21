@@ -1,11 +1,11 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
+using OtterTex;
 using System;
-using TeximpNet;
 using VfxEditor.FileBrowser;
 using VfxEditor.Formats.TextureFormat.Ui;
-using Surface = TeximpNet.Surface;
+using VfxEditor.Utils;
 
 namespace VfxEditor.Formats.TextureFormat.Textures {
     public abstract class TextureDrawable {
@@ -49,6 +49,7 @@ namespace VfxEditor.Formats.TextureFormat.Textures {
                 ImGui.SameLine();
                 using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
                     if( ImGui.Button( FontAwesomeIcon.Edit.ToIconString() ) ) ImGui.OpenPopup( "编辑" );
+                    UiUtils.Tooltip( "编辑纹理" );
                 }
 
                 DrawSettingsCog();
@@ -68,29 +69,30 @@ namespace VfxEditor.Formats.TextureFormat.Textures {
                 ImGui.InputInt( "##Resize", ResizeInput );
                 using( var style = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, ImGui.GetStyle().ItemInnerSpacing ) ) {
                     ImGui.SameLine();
-                    if( ImGui.Button( "调整大小" ) ) {
-                        ApplyEdit( ( Surface surface ) => surface.Resize( ResizeInput[0], ResizeInput[1], ImageFilter.Box ) );
+                    if( ImGui.Button( "调整大小" ) && ResizeInput[0] > 0 && ResizeInput[1] > 0 ) {
+                        ApplyEdit( image => image.Resize( ResizeInput[0], ResizeInput[1], FilterFlags.Cubic | FilterFlags.ForceNonWIC ) );
                     }
                 }
 
                 if( ImGui.Selectable( "灰度" ) ) {
-                    ApplyEdit( ( Surface surface ) => surface.ConvertTo( ImageConversion.ToGreyscale ) );
+                    ApplyEdit( Grayscale );
                 }
 
                 if( ImGui.Selectable( "水平翻转" ) ) {
-                    ApplyEdit( ( Surface surface ) => surface.FlipHorizontally() );
+                    ApplyEdit( image => image.FlipRotate( FlipRotateFlags.FlipHorizontal ) );
                 }
 
                 if( ImGui.Selectable( "垂直翻转" ) ) {
-                    ApplyEdit( ( Surface surface ) => surface.FlipVertically() );
+                    ApplyEdit( image => image.FlipRotate( FlipRotateFlags.FlipVertical ) );
                 }
 
+                // DirectXTex rotates clockwise
                 if( ImGui.Selectable( "向左旋转" ) ) {
-                    ApplyEdit( ( Surface surface ) => surface.Rotate( 90 ) );
+                    ApplyEdit( image => image.FlipRotate( FlipRotateFlags.Rotate270 ) );
                 }
 
                 if( ImGui.Selectable( "向右旋转" ) ) {
-                    ApplyEdit( ( Surface surface ) => surface.Rotate( -90 ) );
+                    ApplyEdit( image => image.FlipRotate( FlipRotateFlags.Rotate90 ) );
                 }
 
                 ImGui.EndPopup();
@@ -99,30 +101,34 @@ namespace VfxEditor.Formats.TextureFormat.Textures {
             DrawSettingsPopup();
         }
 
-        private void ApplyEdit( Action<Surface> edit ) {
+        private void ApplyEdit( Func<ScratchImage, ScratchImage> edit ) {
             try {
                 var file = GetRawData();
                 if( file == null ) return;
-                var surface = file.GetPngData( out var pin );
-                if( surface == null ) return;
 
-                edit( surface );
-
-                surface.SaveToFile( ImageFormat.PNG, TextureManager.TempPng );
-                surface.Dispose();
-                MemoryHelper.UnpinObject( pin );
-
-                OnReplace( TextureManager.TempPng );
+                // Keeps the texture's original format and mip count
+                file.SaveEdited( TextureManager.TempEdit, edit );
+                OnReplace( TextureManager.TempEdit );
             }
             catch( Exception ex ) {
                 Dalamud.Error( ex, "无法编辑图像" );
             }
         }
 
+        private static ScratchImage Grayscale( ScratchImage image ) {
+            var rgba = image.Pixels.ToArray();
+            for( var i = 0; i < rgba.Length; i += 4 ) {
+                var luma = ( byte )Math.Round( 0.2126 * rgba[i] + 0.7152 * rgba[i + 1] + 0.0722 * rgba[i + 2] );
+                rgba[i] = rgba[i + 1] = rgba[i + 2] = luma;
+            }
+            return ScratchImage.FromRGBA( rgba, image.Meta.Width, image.Meta.Height );
+        }
+
         protected static void DrawSettingsCog() {
             ImGui.SameLine();
             using var font = ImRaii.PushFont( UiBuilder.IconFont );
             if( ImGui.Button( FontAwesomeIcon.Cog.ToIconString() ) ) ImGui.OpenPopup( "设置" );
+            UiUtils.Tooltip( "纹理设置" );
         }
 
         protected static void DrawSettingsPopup() {

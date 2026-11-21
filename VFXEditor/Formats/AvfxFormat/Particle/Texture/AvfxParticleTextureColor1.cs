@@ -1,10 +1,17 @@
 using System.Collections.Generic;
 using System.IO;
-using VfxEditor.AvfxFormat.Particle.Texture;
-using VFXEditor.Formats.AvfxFormat.Curve;
-using static VfxEditor.AvfxFormat.Enums;
+using VfxEditor.Formats.AvfxFormat.Base;
+using VfxEditor.Formats.AvfxFormat.Components.Bool;
+using VfxEditor.Formats.AvfxFormat.Components.Enums;
+using VfxEditor.Formats.AvfxFormat.Components.Int;
+using VfxEditor.Formats.AvfxFormat.Components.IntList;
+using VfxEditor.Formats.AvfxFormat.Curve;
+using VfxEditor.Formats.AvfxFormat.Nodes.Select;
+using VfxEditor.Formats.AvfxFormat.Nodes.SelectList;
+using VfxEditor.Formats.AvfxFormat.Texture;
+using static VfxEditor.Formats.AvfxFormat.Base.Enums;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat.Particle.Texture {
     public class AvfxParticleTextureColor1 : AvfxParticleAttribute {
         public readonly AvfxBool Enabled = new( "启用", "bEna" );
         public readonly AvfxBool ColorToAlpha = new( "颜色值转透明度", "bC2A" );

@@ -5,9 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Float;
 using VfxEditor.Parsing.String;
 
-namespace VfxEditor.PhybFormat.Collision.NormalPlane {
+namespace VfxEditor.Formats.PhybFormat.Collision.NormalPlane {
     public class PhybNormalPlane : PhybData, IPhysicsObject {
         public readonly ParsedPaddedString Name = new( "名称", "replace_me", 32, 0xFE );
         public readonly ParsedPaddedString Bone = new( "骨骼", 32, 0xFE );
@@ -32,13 +33,16 @@ namespace VfxEditor.PhybFormat.Collision.NormalPlane {
             var offset = new Vector3( BoneOffset.Value.X, BoneOffset.Value.Y, BoneOffset.Value.Z );
             var pos = Vector3Helper.TransformCoordinate( offset, bone.BindPose );
 
-            var normal = Vector3.Normalize(new Vector3( Normal.Value.X, Normal.Value.Y, Normal.Value.Z ));
+            var normalVec = new Vector3( Normal.Value.X, Normal.Value.Y, Normal.Value.Z );
+            if( normalVec.Length() < 0.0001f ) return; // degenerate normal, cannot draw
+            var normal = Vector3.Normalize( normalVec );
             var tangent = Vector3.Cross( normal, Vector3.UnitY );
-            if( tangent.Length() == 0 ) {
+            if( tangent.Length() < 0.0001f ) {
                 tangent = Vector3.Cross( normal, Vector3.UnitX );
+                if( tangent.Length() < 0.0001f ) return;
             }
 
-            meshes.Collision.AddBox( pos, normal, Vector3.Normalize(tangent), 0.5f, 0.5f, Thickness.Value );
+            meshes.Collision.AddBox( pos, normal, Vector3.Normalize( tangent ), 0.5f, 0.5f, Thickness.Value );
         }
     }
 }

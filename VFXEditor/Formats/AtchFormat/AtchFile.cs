@@ -1,5 +1,6 @@
-using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using Dalamud.Bindings.ImGui;
+using FFXIVClientStructs.FFXIV.Client.Game.Character;
+using FFXIVClientStructs.FFXIV.Common.Lua;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,6 +9,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using VfxEditor.FileManager;
 using VfxEditor.Formats.AtchFormat.Entry;
+using VfxEditor.Interop.Penumbra.Meta;
 using VfxEditor.Utils;
 
 namespace VfxEditor.Formats.AtchFormat {
@@ -19,6 +21,7 @@ namespace VfxEditor.Formats.AtchFormat {
             { "2bk", "Book (ACN/SMN/SCH)" },
             { "2bw", "Bow (ARC/BRD)" },
             // { "2bs", "" }, //1703
+            { "2cb", "Crossbow (ZPH)" }, //3301, 3332
             { "2ff", "Nouliths (SGE)" },
             { "2gb", "Gunblade (GNB)" },
             { "2gl", "Globe (AST)" },
@@ -59,7 +62,7 @@ namespace VfxEditor.Formats.AtchFormat {
             { "clg", "Fist Weapon, Unique (PGL/MNK)" },
             { "cls", "Fist Weapon, Alternate (PGL/MNK)" },
             { "clw", "Fist Weapon (PGL/MNK)" },
-            // { "cmp", "" }, //1970
+            { "cmp", "Compass" }, //1970, /navigate
             { "col", "Control Switch (Left)" },
             { "cor", "Control Switch (Right)" },
             { "cos", "Control Seat" },
@@ -81,7 +84,7 @@ namespace VfxEditor.Formats.AtchFormat {
             { "fdr", "Consumable" }, //food and drink, but also includes sundering sword
             { "fha", "Gig (FSH)" },
             { "fl2", "Flute (Performance)" },
-            // { "flc", "" }, //1956
+            { "flc", "Falcon" }, //1956, occult falcon
             { "flt", "Flute (BRD Combat)" },
             { "frg", "Frog Summon (NIN)" },
             { "fry", "Knife (LTW) / Fry Pan (CUL)" },
@@ -100,8 +103,8 @@ namespace VfxEditor.Formats.AtchFormat {
             { "gsl", "Wrench" },
             { "gsr", "Opera Glasses" }, //also 1909, no model
             { "gun", "Gun" },
-            // { "hab", "" }, //1973
-            // { "hbg", "" }, //9209
+            { "hab", "Hardiboiled Motorycle" }, //1973
+            { "hbg", "Hardiboiled Gun" }, //9209
             // { "hel", "" },
             { "hmm", "Hammer (BSM/ARM)" },
             { "hrp", "Harp (BRD)" },
@@ -111,7 +114,7 @@ namespace VfxEditor.Formats.AtchFormat {
             { "let", "Letter" },
             { "lfd", "Loporitt Paintbrush" },
             { "lpr", "Ear Wiggle (Emote)" },
-            // { "map", "" }, //1969
+            { "map", "Map" }, //1969, /navigate
             { "mlt", "Mallet (GSM)" },
             { "mmc", "Quad-Cannons (MCH)" },
             // { "mot", "" }, //9992
@@ -123,7 +126,7 @@ namespace VfxEditor.Formats.AtchFormat {
             { "nf2", "Wasshoi Fan" },
             { "nik", "Metal Cup" }, //9055
             // { "njd", "" }, //1935
-            { "nmf", "Namazu Fan" },
+            { "nmf", "Wasshoi Fans / Cheer Orbs" },
             { "nph", "Sledgehammer (MIN)" },
             { "orb", "Focus (RDM)" },
             // { "oum", "" }, //9801
@@ -156,7 +159,7 @@ namespace VfxEditor.Formats.AtchFormat {
             { "swd", "Sword (GLD/PLD)" },
             { "sxs", "Greatsword (FFXVI)" },
             { "sxw", "Phoenix Wings (FFXVI)" },
-            { "syl", "Reference Book (Emote)" }, //and 1976, no model
+            { "syl", "Horn (BST) / Reference Book (Emote)" },
             { "syr", "Shovel / Scythe" },
             { "syu", "Shuriken (NIN)" },
             { "syw", "Job Summons (Dawntrail)" },
@@ -190,6 +193,9 @@ namespace VfxEditor.Formats.AtchFormat {
         public readonly List<AtchEntry> Entries = [];
         private readonly AtchEntrySplitView EntryView;
 
+        public (string GamePath, List<AtchEntry> Entries)? Vanilla { get; private set; } = null; // Penumbra only uses ATCH diffs, so need to highlight which ones are actually changed
+        public readonly HashSet<string> SeenNames = [];
+
         public unsafe AtchFile( BinaryReader reader ) : base() {
             Verified = VerifiedStatus.UNSUPPORTED; // verifying these is fucked. The format is pretty simple though, so it's not a big deal
 
@@ -211,7 +217,7 @@ namespace VfxEditor.Formats.AtchFormat {
             }
 
             Entries.ForEach( x => x.ReadBody( reader, NumStates ) );
-            EntryView = new( Entries );
+            EntryView = new( this, Entries );
         }
 
         public override void Write( BinaryWriter writer ) {
@@ -245,7 +251,45 @@ namespace VfxEditor.Formats.AtchFormat {
 
             ImGui.Separator();
 
+            SeenNames.Clear();
             EntryView.Draw();
+        }
+
+        public void ResetVanilla() {
+            Vanilla = null;
+        }
+
+        public List<AtchEntry> UpdateVanilla( string gamePath ) {
+            if( string.IsNullOrEmpty( gamePath ) ) {
+                ResetVanilla();
+                return null;
+            }
+            if( Vanilla?.GamePath == gamePath ) { // already have them
+                return Vanilla.Value.Entries;
+            }
+
+            try {
+                var data = Dalamud.DataManager.GetFile( gamePath )?.Data;
+                if( data != null ) {
+                    using var reader = new BinaryReader( new MemoryStream( data ) );
+                    var file = new AtchFile( reader );
+                    Vanilla = (gamePath, [.. file.Entries]);
+                    // Make sure this is clear to be cleaned up
+                    file.Entries.Clear();
+                    file.Dispose();
+
+                    return Vanilla?.Entries;
+                }
+                else {
+                    Dalamud.Error( $"未找到路径 {gamePath}" );
+                }
+            }
+            catch( Exception ex ) {
+                Dalamud.Error( ex, $"获取 {gamePath} 的原版 ATCH 更改失败" );
+            }
+
+            ResetVanilla();
+            return null;
         }
 
         private unsafe void DrawCurrentWeapons() {
@@ -255,7 +299,7 @@ namespace VfxEditor.Formats.AtchFormat {
             // https://github.com/aers/FFXIVClientStructs/blob/2c388216cb52d4b6c4dbdedb735e1b343d56a846/FFXIVClientStructs/FFXIV/Client/Game/Character/Character.cs#L78C20-L78C23
             var dataStart = ( nint )Unsafe.AsPointer( ref ( ( Character* )Plugin.PlayerObject.Address )->DrawData ) + 0x20;
 
-            for( var i = 0; i < 3; i++ ) {
+            for( var i = 0; i < 4; i++ ) {
                 var data = dataStart + ( DrawObjectData.Size * i );
                 if( Marshal.ReadInt64( data + 8 ) == 0 || Marshal.ReadInt64( data + 16 ) == 0 || Marshal.ReadInt32( data + 32 ) == 0 ) continue;
 

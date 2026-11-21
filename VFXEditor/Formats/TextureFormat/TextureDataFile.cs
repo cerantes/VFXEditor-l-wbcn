@@ -1,13 +1,14 @@
 using Lumina.Data;
+using Lumina.Data.Files;
+using OtterTex;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using TeximpNet;
-using TeximpNet.Compression;
-using TeximpNet.DDS;
+using System.Threading.Tasks;
 using VfxEditor.FileBrowser;
-using VfxEditor.Formats.TextureFormat.CustomTeximpNet;
+using VfxEditor.Utils;
 
 namespace VfxEditor.Formats.TextureFormat {
     public enum Attribute : uint {
@@ -81,36 +82,25 @@ namespace VfxEditor.Formats.TextureFormat {
             public ushort Width;
             public ushort Height;
             public ushort Depth;
-            public byte MipLevelsCount;
+            public byte MipLevelsAndFlag;
             public byte ArraySize;
             [MarshalAs( UnmanagedType.ByValArray, SizeConst = 3 )]
             public uint[] LodOffset;
             [MarshalAs( UnmanagedType.ByValArray, SizeConst = 13 )]
             public uint[] OffsetToSurface;
 
-            public readonly DXGIFormat DXGIFormat => Format switch {
-                TextureFormat.DXT1 => DXGIFormat.BC1_UNorm,
-                TextureFormat.DXT5 => DXGIFormat.BC3_UNorm,
-                TextureFormat.BC5 => DXGIFormat.BC5_UNorm,
-                TextureFormat.BC7 => DXGIFormat.BC7_UNorm,
-                TextureFormat.A8R8G8B8 => DXGIFormat.R8G8B8A8_UNorm,
-                TextureFormat.R4G4B4A4 => DXGIFormat.B4G4R4A4_UNorm,
-                TextureFormat.R5G5B5A1 => DXGIFormat.B5G5R5A1_UNorm,
-                _ => DXGIFormat.R8G8B8A8_UNorm
-            };
+            public readonly byte MipLevelsCount => ( byte )( MipLevelsAndFlag & 0x7F );
         };
 
         public TexHeader Header { get; private set; }
         public bool ValidFormat { get; private set; } = false;
 
-        // Used for image previews
-        private OtterTex.ScratchImage ScratchImage;
+        // Decoded RGBA data, used for image previews. One entry per image (array layer, or mip for regular textures)
         public List<byte[]> Layers { get; private set; }
         public byte[] ImageData => Layers[0];
 
         private static int HeaderLength => Marshal.SizeOf<TexHeader>();
         private byte[] AllData;
-        private byte[] DdsData;
 
         public override void LoadFile() => LoadFile( Reader );
 
@@ -133,99 +123,71 @@ namespace VfxEditor.Formats.TextureFormat {
             Header = Marshal.PtrToStructure<TexHeader>( handle );
             Marshal.FreeHGlobal( handle );
 
-            DdsData = reader.ReadBytes( AllData.Length - HeaderLength );
-
-            using var ms = new MemoryStream( GetAllData() );
-            ScratchImage = TexFileParser.Parse( ms );
-
-            var layerCount = Header.ArraySize > 1 && Header.MipLevelsCount > 1 && Header.Type == Attribute.TextureType2DArray ? Header.ArraySize : Header.Depth;
-            ScratchImage.GetRGBA( out var rgba );
-
-            Layers = [.. rgba.Images.ToArray().Select(
-                image => image.Span[..( image.Width * image.Height * 4 )].ToArray() )];
+            using var scratch = ParseScratchImage();
+            scratch.GetRGBA( out var rgba ).ThrowIfError();
+            using( rgba ) {
+                Layers = [.. rgba.Images.ToArray().Select(
+                    image => image.Span[..( image.Width * image.Height * 4 )].ToArray() )];
+            }
 
             ValidFormat = ImageData.Length > 0;
         }
 
-        public static TextureFormat DXGItoTextureFormat( DXGIFormat format ) {
-            return format switch {
-                DXGIFormat.A8_UNorm => TextureFormat.A8,
-                DXGIFormat.BC1_UNorm => TextureFormat.DXT1,
-                DXGIFormat.BC2_UNorm => TextureFormat.DXT3,
-                DXGIFormat.BC3_UNorm => TextureFormat.DXT5,
-                DXGIFormat.BC7_UNorm => TextureFormat.BC7,
-                DXGIFormat.B8G8R8A8_UNorm => TextureFormat.A8R8G8B8,
-                DXGIFormat.B4G4R4A4_UNorm => TextureFormat.R4G4B4A4,
-                DXGIFormat.B5G5R5A1_UNorm => TextureFormat.R5G5B5A1,
-                _ => TextureFormat.Null,
-            };
-        }
-
-        public static CompressionFormat TextureToCompressionFormat( TextureFormat format ) {
-            return format switch {
-                TextureFormat.DXT1 => CompressionFormat.BC1a,
-                TextureFormat.DXT3 => CompressionFormat.BC2,
-                TextureFormat.DXT5 => CompressionFormat.BC3,
-                TextureFormat.BC5 => CompressionFormat.BC5,
-                TextureFormat.BC7 => CompressionFormat.BC7,
-                TextureFormat.A8R8G8B8 or TextureFormat.R4G4B4A4 or TextureFormat.A8 or TextureFormat.R5G5B5A1 => CompressionFormat.BGRA,
-                _ => CompressionFormat.ETC1,
-            }; ;
-        }
-
-        public static byte[] CompressA8( byte[] data ) {
-            // r g b A r g b A, ... only take the A part
-            var ret = new byte[data.Length / 4];
-            for( var i = 0; i < ret.Length; i++ ) {
-                ret[i] = data[i * 4 + 3];
-            }
-            return ret;
+        private OtterTex.ScratchImage ParseScratchImage() {
+            using var ms = new MemoryStream( AllData );
+            return TexFileParser.Parse( ms );
         }
 
         // ==================
 
         public byte[] GetAllData() => AllData;
 
-        public byte[] GetDdsData() => DdsData;
+        // Surface data without the 80-byte .tex header
+        public byte[] GetDdsData() => AllData[HeaderLength..];
 
-        public Surface GetPngData( out nint pin ) {
-            var data = new RGBAQuad[Header.Height * Header.Width];
-            for( var i = 0; i < Header.Height; i++ ) {
-                for( var j = 0; j < Header.Width; j++ ) {
-                    var idx = i * Header.Width + j;
-                    data[idx] = new RGBAQuad( ImageData[idx * 4], ImageData[idx * 4 + 1], ImageData[idx * 4 + 2], ImageData[idx * 4 + 3] );
-                }
+        public Task SaveAsPngAsync( string path ) => TextureUtils.SavePngAsync( ImageData, Header.Width, Header.Height, path );
+
+        public void SaveEdited( string path, Func<ScratchImage, ScratchImage> edit ) {
+            using var source = ScratchImage.FromRGBA( ImageData, Header.Width, Header.Height );
+            using var edited = edit( source );
+            using var bgra = edited.Convert( DXGIFormat.B8G8R8A8UNorm );
+
+            var target = ( ( TexFile.TextureFormat )Header.Format ).ToDXGI();
+            if( !CanEncode( target ) ) {
+                Dalamud.Log( $"无法将修改后的纹理重新编码为 {Header.Format}，将使用 B8G8R8A8" );
+                target = DXGIFormat.B8G8R8A8UNorm;
             }
-            pin = MemoryHelper.PinObject( data );
-            return Surface.LoadFromRawData( pin, Header.Width, Header.Height, Header.Width * 4, false, true );
+
+            var mips = Math.Clamp( ( int )Header.MipLevelsCount, 1, TexFileParser.MaxMipLevels( bgra.Meta.Width, bgra.Meta.Height, target ) );
+            using var mipped = mips > 1 ? bgra.GenerateMipMaps( mips, FilterFlags.ForceNonWIC | FilterFlags.SeparateAlpha ) : null;
+            var current = mipped ?? bgra;
+
+            using var final =
+                target.IsCompressed() ? current.Compress( target, CompressFlags.Parallel | ( target == DXGIFormat.BC7UNorm ? CompressFlags.BC7Quick : 0 ) ) :
+                target != DXGIFormat.B8G8R8A8UNorm ? current.Convert( target ) :
+                null;
+
+            TexFileParser.SaveTex( final ?? current, path );
         }
 
-        public void SaveAsPng( string path ) {
-            var surface = GetPngData( out var pin );
-            if( surface == null ) return;
-
-            surface.SaveToFile( ImageFormat.PNG, path );
-            surface.Dispose();
-            MemoryHelper.UnpinObject( pin );
-        }
+        // Depth and shadow formats are typeless and can't be converted to
+        private static bool CanEncode( DXGIFormat format ) => format switch {
+            DXGIFormat.Unknown => false,
+            DXGIFormat.R16G16B16A16Typeless => false,
+            DXGIFormat.R24G8Typeless => false,
+            DXGIFormat.R16Typeless => false,
+            _ => format.ToTexFormat() != TexFile.TextureFormat.Unknown
+        };
 
         public void SaveAsDds( string path ) {
-            using var ms = new MemoryStream();
-            using var writer = new BinaryWriter( ms );
-
-            using var buffer = new StreamTransferBuffer();
-            CustomDDSFile.WriteHeader( ms, buffer, TextureDimension.Two,
-                Header.DXGIFormat, Header.Width, Header.Height, Header.Depth, Header.ArraySize, Header.MipLevelsCount, DDSFlags.None );
-
-            writer.BaseStream.Position = ms.Length;
-            writer.Write( GetDdsData() );
-            File.WriteAllBytes( path, ms.ToArray() );
+            using var scratch = ParseScratchImage();
+            scratch.SaveDDS( path ).ThrowIfError();
         }
 
         public void SavePngDialog() {
             FileBrowserManager.SaveFileDialog( "Select a Save Location", ".png", "ExportedTexture", "png", ( ok, res ) => {
                 if( !ok ) return;
-                SaveAsPng( res );
+                _ = SaveAsPngAsync( res );
             } );
         }
 

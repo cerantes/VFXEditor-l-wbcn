@@ -1,8 +1,15 @@
 using System.Collections.Generic;
+using VfxEditor.Data;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
+using VfxEditor.Parsing.Sheets;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C216 : TmbEntry {
         public const string MAGIC = "C216";
         public const string DISPLAY_NAME = "Subtitles";
@@ -14,9 +21,9 @@ namespace VfxEditor.TmbFormat.Entries {
 
         public readonly ParsedBool Enabled = new( "Enabled" );
         public readonly ParsedInt Unknown2 = new( "Unknown 2" );
-        public readonly ParsedInt SubtitleType = new( "Subtitle Type" );
-        public readonly ParsedInt TextId = new( "Text Id" );
-        public readonly ParsedInt SpeakerId = new( "Speaker Id" );
+        public readonly ParsedEnum<SubtitleType> Type = new( "Subtitle Type" );
+        public readonly ParsedSheetInt TextId = new( "文本", SheetData.Subtitle, SheetData.InitSubtitle );
+        public readonly ParsedSheetInt SpeakerId = new( "说话人", SheetData.NpcName, SheetData.InitNpcName );
         public readonly ParsedFloat Duration = new( "Duration" );
         public readonly ParsedInt Unknown7 = new( "Unknown 7" );
         public readonly ParsedInt Unknown8 = new( "Unknown 8" );
@@ -29,7 +36,7 @@ namespace VfxEditor.TmbFormat.Entries {
         protected override List<ParsedBase> GetParsed() => [
             Enabled,
             Unknown2,
-            SubtitleType,
+            Type,
             TextId,
             SpeakerId,
             Duration,

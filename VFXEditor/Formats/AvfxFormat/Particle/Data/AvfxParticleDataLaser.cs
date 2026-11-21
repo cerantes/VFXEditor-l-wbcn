@@ -1,6 +1,7 @@
-using VFXEditor.Formats.AvfxFormat.Curve;
+using VfxEditor.Formats.AvfxFormat.Base;
+using VfxEditor.Formats.AvfxFormat.Curve;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat.Particle.Data {
     public class AvfxParticleDataLaser : AvfxData {
         public readonly AvfxCurve1Axis Length = new( "长度", "Len" );
         public readonly AvfxCurve1Axis LengthRandom = new( "随机长度", "LenR" );

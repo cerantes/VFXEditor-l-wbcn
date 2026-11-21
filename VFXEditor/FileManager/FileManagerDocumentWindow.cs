@@ -1,7 +1,8 @@
-﻿using Dalamud.Interface;
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.Ui;
 using VfxEditor.Utils;
 
@@ -25,7 +26,7 @@ namespace VfxEditor.FileManager {
 
             using var style = ImRaii.PushStyle( ImGuiStyleVar.WindowPadding, new Vector2( 0, 0 ) );
             using var child = ImRaii.Child( "子级", new Vector2( -1 ), true );
-            using var table = ImRaii.Table( "##Table", ShowSourceColumn ? 3 : 2, ImGuiTableFlags.RowBg );
+            using var table = ImRaii.Table( "##Table", ShowSourceColumn ? 3 : 2, ImGuiTableFlags.RowBg | ImGuiTableFlags.NoSavedSettings );
             style.Pop();
 
             ImGui.TableSetupColumn( "##Column1", ImGuiTableColumnFlags.WidthStretch );
@@ -39,7 +40,7 @@ namespace VfxEditor.FileManager {
                 ImGui.TableNextColumn();
 
                 var active = document == Manager.ActiveDocument;
-                using( var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.DALAMUD_ORANGE, active ) ) {
+                using( var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.YELLOW_ACCENT, active ) ) {
                     ImGui.SetCursorPosX( ImGui.GetCursorPosX() + 10 );
 
                     if( ShowSourceColumn ) {
@@ -65,7 +66,10 @@ namespace VfxEditor.FileManager {
 
                 using var popup = ImRaii.Popup( "DocumentPopup" );
                 if( popup ) {
-                    if( UiUtils.IconSelectable( FontAwesomeIcon.Trash, "Delete" ) ) Manager.RemoveDocument( document );
+                    if( UiUtils.IconSelectable( FontAwesomeIcon.Trash, "Delete" ) ) {
+                        Manager.RemoveDocument( document );
+                        break;
+                    }
                     document.DrawRename();
                 }
             }

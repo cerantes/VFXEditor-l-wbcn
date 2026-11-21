@@ -6,14 +6,15 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using VfxEditor.AvfxFormat;
+using VfxEditor.Data;
+using VfxEditor.Data.Command;
 using VfxEditor.Data.Command.ListCommands;
 using VfxEditor.DirectX;
 using VfxEditor.Formats.AvfxFormat.Assign;
+using VfxEditor.Formats.AvfxFormat.Base;
 using VfxEditor.Parsing;
 using VfxEditor.Utils;
-using VFXEditor.Formats.AvfxFormat.Curve;
-using static VfxEditor.AvfxFormat.Enums;
+using static VfxEditor.Formats.AvfxFormat.Base.Enums;
 
 namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
     public enum LinesAssigned {
@@ -98,7 +99,7 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
             using var padding = ImRaii.PushStyle( ImGuiStyleVar.WindowPadding, new Vector2( 0, 0 ) );
             using var child = ImRaii.Child( "Child", new( -1, height ), false );
             using var table = ImRaii.Table( "Table", 5,
-                ImGuiTableFlags.RowBg | ImGuiTableFlags.NoHostExtendX | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.PadOuterX );
+                ImGuiTableFlags.RowBg | ImGuiTableFlags.NoHostExtendX | ImGuiTableFlags.ScrollY | ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.PadOuterX | ImGuiTableFlags.NoSavedSettings );
             if( !table ) return;
 
             padding.Dispose();
@@ -155,18 +156,23 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
             using( var style = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, ImGui.GetStyle().ItemInnerSpacing ) )
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
                 fit = ImGui.Button( $"{FontAwesomeIcon.ExpandArrowsAlt.ToIconString()}" );
+                UiUtils.Tooltip( "视图适配曲线" );
 
                 ImGui.SameLine();
                 if( ImGui.Button( $"{FontAwesomeIcon.Copy.ToIconString()}" ) ) Copy();
+                UiUtils.Tooltip( "复制关键帧" );
 
                 ImGui.SameLine();
                 if( UiUtils.DisabledButton( $"{FontAwesomeIcon.Paste.ToIconString()}", CopiedKeys.Count > 0 ) ) Paste();
+                UiUtils.Tooltip( "粘贴关键帧（追加到现有关键帧）" );
 
                 ImGui.SameLine();
                 if( UiUtils.DisabledButton( $"{FontAwesomeIcon.ArrowRightToBracket.ToIconString()}", CopiedKeys.Count > 0 ) ) Replace();
+                UiUtils.Tooltip( "用复制的关键帧替换现有关键帧" );
 
                 ImGui.SameLine();
                 if( UiUtils.RemoveButton( $"{FontAwesomeIcon.Times.ToIconString()}" ) ) Clear();
+                UiUtils.Tooltip( "清除所有关键帧" );
             }
 
             if( Curves.Any( x => x.Type == CurveType.Angle ) ) {
@@ -188,21 +194,21 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
                 ImGui.BeginTooltip();
 
                 var color = UiUtils.PARSED_GREEN;
-                using var style = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( ImGui.GetStyle().ItemInnerSpacing.X, ImGui.GetStyle().ItemSpacing.Y ) );
+                using( ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, new Vector2( ImGui.GetStyle().ItemInnerSpacing.X, ImGui.GetStyle().ItemSpacing.Y ) ) ) {
+                    ImGui.TextColored( color, "Ctrl+Left Click" );
+                    ImGui.SameLine();
+                    ImGui.Text( "to add a new point" );
 
-                ImGui.TextColored( color, "Ctrl+左键" );
-                ImGui.SameLine();
-                ImGui.Text( "添加新点" );
+                    ImGui.TextColored( color, "左键" );
+                    ImGui.SameLine();
+                    ImGui.Text( "选中一个点" );
 
-                ImGui.TextColored( color, "左键" );
-                ImGui.SameLine();
-                ImGui.Text( "选中一个点" );
-
-                ImGui.Text( "按住" );
-                ImGui.SameLine();
-                ImGui.TextColored( color, "Shift" );
-                ImGui.SameLine();
-                ImGui.Text( "多选多个点" );
+                    ImGui.Text( "按住" );
+                    ImGui.SameLine();
+                    ImGui.TextColored( color, "Shift 键" );
+                    ImGui.SameLine();
+                    ImGui.Text( "多选多个点" );
+                }
 
                 ImGui.EndTooltip();
             }
@@ -235,11 +241,11 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
                 DrawOnce = true;
             }
 
-            var height = ImGui.GetContentRegionAvail().Y - ( 4 * ImGui.GetFrameHeightWithSpacing() + 5 );
+            var height = ImGui.GetContentRegionAvail().Y - ( 3 * ImGui.GetFrameHeightWithSpacing() + 5 );
+            if( fit ) ImPlot.SetNextAxesToFit();
             ImPlot.PushStyleVar( ImPlotStyleVar.FitPadding, new Vector2( 0.5f, 0.5f ) );
             using( var plot = ImRaii.Plot( $"##CurveEditor{RenderId}", new Vector2( -1, height ), ImPlotFlags.NoMenus | ImPlotFlags.NoTitle ) ) {
                 if( plot ) {
-                    if( fit ) ImPlot.SetNextAxesToFit();
                     if( IsColor ) {
                         ImPlot.SetupAxisLimits( ImAxis.Y1, -1, 1, ImPlotCond.Always );
                         ImPlot.SetupAxisLimitsConstraints( ImAxis.X1, 0, double.MaxValue - 1 );
@@ -252,24 +258,19 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
 
                     var draggingAnyPoint = false;
                     var dragPointId = 0;
+                    var limits = ImPlot.GetPlotLimits();
                     foreach( var (curve, curveIdx) in Curves.WithIndex() ) {
                         if( !curve.IsAssigned() || curve.Keys.Count == 0 ) continue;
 
+                        curve.GetDrawLine( limits.X.Min, limits.X.Max, out var _xs, out var _ys, out var preXs, out var preYs, out var postXs, out var postYs );
+                        var lineColor = GetLineColor( curve, curveIdx );
+
+                        var behaviorColor = lineColor with { W = lineColor.W * 0.35f };
+                        PlotLine( $"##Pre{curveIdx}", preXs, preYs, behaviorColor );
+                        PlotLine( $"##Post{curveIdx}", postXs, postYs, behaviorColor );
+
                         ImPlot.HideNextItem( false, ImPlotCond.Once );
-                        curve.GetDrawLine( out var _xs, out var _ys );
-                        var xs = _xs.ToArray();
-                        var ys = _ys.ToArray();
-
-                        var lineColor = curve.GetAvfxName() switch {
-                            "X" or "RX" => new( 1, 0, 0, 1 ),
-                            "Y" or "RY" => new( 0, 1, 0, 1 ),
-                            "Z" or "RZ" => new( 0, 0, 1, 1 ),
-                            _ => LineColors[curveIdx % LineColors.Length],
-                        };
-
-                        ImPlot.SetNextLineStyle( lineColor, Plugin.Configuration.CurveEditorLineWidth );
-
-                        ImPlot.PlotLine( curve.Name, ref xs[0], ref ys[0], xs.Length );
+                        PlotLine( curve.Name, _xs, _ys, lineColor );
 
                         DrawGradient();
 
@@ -308,23 +309,19 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
                                 draggingAnyPoint = true;
                             }
                         }
-
-                        // ======================
-
-                        if( Editing && !draggingAnyPoint && ( DateTime.Now - LastEditTime ).TotalMilliseconds > 200 ) {
-                            Editing = false;
-                            var commands = new List<ICommand>();
-                            Selected.ForEach( x => x.Item2.StopDragging( commands ) );
-                            CommandManager.Add( new CompoundCommand( commands, OnUpdate ) );
-                        }
-
-                        // Selecting point [Left Click]
-                        // want to ignore if going to drag points around, so only process if click+release is less than 200 ms
-                        var processClick = !clickState && PrevClickState && ( DateTime.Now - PrevClickTime ).TotalMilliseconds < 200;
-                        if( !draggingAnyPoint && processClick && !ImGui.GetIO().KeyCtrl && IsHovering() && !ImGui.IsAnyItemActive() && ImGui.IsWindowFocused() ) SingleSelect();
-
-                        // TODO: box select and right click
                     }
+
+                    if( Editing && !draggingAnyPoint && ( DateTime.Now - LastEditTime ).TotalMilliseconds > 200 ) {
+                        Editing = false;
+                        var commands = new List<ICommand>();
+                        Selected.ForEach( x => x.Item2.StopDragging( commands ) );
+                        CommandManager.Add( new CompoundCommand( commands, OnUpdate ) );
+                    }
+
+                    // Selecting point [Left Click]
+                    // want to ignore if going to drag points around, so only process if click+release is less than 200 ms
+                    var processClick = !clickState && PrevClickState && ( DateTime.Now - PrevClickTime ).TotalMilliseconds < 200;
+                    if( !draggingAnyPoint && processClick && !ImGui.GetIO().KeyCtrl && IsHovering() && !ImGui.IsAnyItemActive() && ImGui.IsWindowFocused() ) SingleSelect();
 
                     // Inserting point [Ctrl + Left Click]
                     if( ImGui.IsMouseClicked( ImGuiMouseButton.Left ) && ImGui.GetIO().KeyCtrl && IsHovering() && ImGui.IsWindowFocused() ) NewPoint();
@@ -411,6 +408,20 @@ namespace VfxEditor.Formats.AvfxFormat.Curve.Lines {
             Plugin.DirectXManager.GradientRenderer.SetGradient( RenderId, File.GradientInstance, [
                 [.. ColorCurve.Keys.Select( x => (x.Time.Value, x.Color))]
             ] );
+        }
+
+        private static Vector4 GetLineColor( AvfxCurveData curve, int curveIdx ) => curve.GetAvfxName() switch {
+            "X" or "XR" or "SclR" or "RanR" => new( 1, 0, 0, 1 ),
+            "Y" or "YR" or "SclG" or "RanG" => new( 0, 1, 0, 1 ),
+            "Z" or "ZR" or "SclB" or "RanB" => new( 0, 0, 1, 1 ),
+            "A" or "SclA" or "RanA" => new( 1, 1, 1, 1 ),
+            _ => LineColors[curveIdx % LineColors.Length],
+        };
+
+        private static void PlotLine( string label, double[] xs, double[] ys, Vector4 color ) {
+            if( xs.Length == 0 ) return;
+            ImPlot.SetNextLineStyle( color, Plugin.Configuration.CurveEditorLineWidth );
+            ImPlot.PlotLine( label, ref xs[0], ref ys[0], xs.Length );
         }
 
         private static uint Invert( Vector3 color ) =>

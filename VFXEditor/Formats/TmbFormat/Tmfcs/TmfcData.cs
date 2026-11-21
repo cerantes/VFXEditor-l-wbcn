@@ -2,33 +2,34 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
 using System.Collections.Generic;
 using System.IO;
+using VfxEditor.Data.Command;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Int;
 using VfxEditor.Ui.Interfaces;
 
-namespace VfxEditor.TmbFormat.Tmfcs {
+namespace VfxEditor.Formats.TmbFormat.Tmfcs {
     public class TmfcData : IUiItem {
+        public const int HeaderSize = 0x10;
+
         public readonly TmbFile File;
 
         public readonly ParsedUInt Unk1 = new( "未知 1" );
         public readonly ParsedUInt Unk2 = new( "未知 2", size: 1 );
         public readonly ParsedUInt Unk3 = new( "未知 3", size: 1 );
         public readonly ParsedUInt Unk4 = new( "未知 4", size: 1 );
-        public readonly ParsedUInt Unk5 = new( "未知 5", size: 1 );
-        public readonly ParsedUInt Unk6 = new( "未知 6", size: 1 );
-        public readonly ParsedUInt Unk7 = new( "未知 7", size: 1 );
-        public readonly ParsedUInt Unk8 = new( "未知 8", size: 1 );
-        public readonly ParsedUInt Unk9 = new( "未知 9", size: 1 );
-        private readonly uint TempRowCount = 0;
+        public readonly ParsedSByte Unk5 = new( "未知 5" );
+
+        private readonly long HeaderPosition;
+        private readonly int TempRowOffset;
+        private readonly uint TempRowCount;
 
         public readonly List<ParsedBase> Parsed = [];
 
         public readonly List<TmfcRow> Rows = [];
 
-        public int Size => 0x10 + ( 0x18 * Rows.Count );
+        public int Size => HeaderSize + ( TmfcRow.Size * Rows.Count );
 
         public CommandManager Command => File.Command;
-
-        // 24 bytes x count
 
         public TmfcData( BinaryReader reader, TmbFile file ) {
             File = file;
@@ -38,26 +39,31 @@ namespace VfxEditor.TmbFormat.Tmfcs {
                 Unk3,
                 Unk4,
                 Unk5,
-                Unk6,
-                Unk7,
-                Unk8,
-                Unk9
             ] );
 
+            HeaderPosition = reader.BaseStream.Position;
             Parsed.ForEach( x => x.Read( reader ) );
+            TempRowOffset = reader.ReadInt32();
             TempRowCount = reader.ReadUInt32();
         }
 
         public void ReadRows( BinaryReader reader ) {
+            if( TempRowCount == 0 ) return;
+            reader.BaseStream.Position = HeaderPosition + TempRowOffset;
             for( var i = 0; i < TempRowCount; i++ ) Rows.Add( new TmfcRow( reader ) );
         }
 
-        public void Write( BinaryWriter writer ) {
+        public void Write( BinaryWriter writer, int rowOffset ) {
             Parsed.ForEach( x => x.Write( writer ) );
+            writer.Write( rowOffset );
             writer.Write( Rows.Count );
         }
 
-        public void WriteRows( BinaryWriter writer ) => Rows.ForEach( x => x.Write( writer ) );
+        public void WriteRows( BinaryWriter writer ) {
+            for( var idx = 0; idx < Rows.Count; idx++ ) {
+                Rows[idx].Write( writer, idx + 1 < Rows.Count ? Rows[idx + 1] : null );
+            }
+        }
 
         public void Draw() {
             Parsed.ForEach( x => x.Draw() );

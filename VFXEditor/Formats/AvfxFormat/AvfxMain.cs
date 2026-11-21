@@ -1,13 +1,28 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using VfxEditor.Formats.AvfxFormat.Base;
+using VfxEditor.Formats.AvfxFormat.Binder;
+using VfxEditor.Formats.AvfxFormat.Components.Bool;
+using VfxEditor.Formats.AvfxFormat.Components.Enums;
+using VfxEditor.Formats.AvfxFormat.Components.Float;
+using VfxEditor.Formats.AvfxFormat.Components.Int;
+using VfxEditor.Formats.AvfxFormat.Components.UiComponents;
+using VfxEditor.Formats.AvfxFormat.Effector;
+using VfxEditor.Formats.AvfxFormat.Emitter;
+using VfxEditor.Formats.AvfxFormat.Model;
+using VfxEditor.Formats.AvfxFormat.Nodes;
+using VfxEditor.Formats.AvfxFormat.Particle;
+using VfxEditor.Formats.AvfxFormat.Scheduler;
+using VfxEditor.Formats.AvfxFormat.Texture;
+using VfxEditor.Formats.AvfxFormat.Timeline;
 using VfxEditor.Ui.Interfaces;
 using VfxEditor.Utils;
-using static VfxEditor.AvfxFormat.Enums;
+using static VfxEditor.Formats.AvfxFormat.Base.Enums;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat {
     public class AvfxMain : AvfxDrawable {
         public static AvfxMain FromStream( AvfxFile file, BinaryReader reader ) {
             var main = new AvfxMain( file );
@@ -75,7 +90,7 @@ namespace VfxEditor.AvfxFormat {
         public readonly AvfxBool GlobalFogEnabled = new( "全局烟雾效果", "bGFE" );
         public readonly AvfxFloat GlobalFogInfluence = new( "全局雾效影响", "GFIM" );
         public readonly AvfxBool LTSEnabled = new( "启用 LTS", "bLTS" );
-        public readonly AvfxBool AGSEnabled = new( "启用 AGS", "bAGS" );
+        public readonly AvfxBool AGSEnabled = new( "调整全局缩放", "bAGS" );
 
         // New to dawntrail
         public readonly AvfxInt APRi = new( "APri", "APri" );

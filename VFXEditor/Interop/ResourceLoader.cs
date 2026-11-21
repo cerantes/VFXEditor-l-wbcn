@@ -1,4 +1,6 @@
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
+using FFXIVClientStructs.FFXIV.Client.System.Resource;
+using FFXIVClientStructs.FFXIV.Client.System.Scheduler.Base;
 using System.Runtime.InteropServices;
 
 namespace VfxEditor.Interop {
@@ -6,42 +8,18 @@ namespace VfxEditor.Interop {
         public ResourceLoader() {
             Dalamud.Hooks.InitializeFromAttributes( this );
 
-            ReadSqpackHook = Dalamud.Hooks.HookFromSignature<ReadSqpackPrototype>( Constants.ReadSqpackSig, ReadSqpackDetour );
-            GetResourceSyncHook = Dalamud.Hooks.HookFromSignature<GetResourceSyncPrototype>( Constants.GetResourceSyncSig, GetResourceSyncDetour );
-            GetResourceAsyncHook = Dalamud.Hooks.HookFromSignature<GetResourceAsyncPrototype>( Constants.GetResourceAsyncSig, GetResourceAsyncDetour );
-            ReadFile = Marshal.GetDelegateForFunctionPointer<ReadFilePrototype>( Dalamud.SigScanner.ScanText( Constants.ReadFileSig ) );
+            GetResourceSyncHook = Dalamud.Hooks.HookFromAddress<GetResourceSyncPrototype>( ResourceManager.Addresses.GetResourceSync.Value, GetResourceSyncDetour );
+            GetResourceAsyncHook = Dalamud.Hooks.HookFromAddress<GetResourceAsyncPrototype>( ResourceManager.Addresses.GetResourceAsync.Value, GetResourceAsyncDetour );
+            PlayActionHook = Dalamud.Hooks.HookFromAddress<PlayActionPrototype>( SchedulerTimeline.Addresses.LoadTimelineResources.Value, PlayActionDetour );
 
             var staticVfxCreateAddress = Dalamud.SigScanner.ScanText( VfxObject.Addresses.Create.String );
-            var staticVfxRemoveAddress = Dalamud.SigScanner.ScanText( Constants.StaticVfxRemoveSig );
-            var actorVfxCreateAddress = Dalamud.SigScanner.ScanText( Constants.ActorVfxCreateSig );
-            var actorVfxRemoveAddresTemp = Dalamud.SigScanner.ScanText( Constants.ActorVfxRemoveSig ) + 7;
-            var actorVfxRemoveAddress = Marshal.ReadIntPtr( actorVfxRemoveAddresTemp + Marshal.ReadInt32( actorVfxRemoveAddresTemp ) + 4 );
+            var actorVfxRemoveAddressTemp = Dalamud.SigScanner.ScanText( Constants.ActorVfxRemoveSig ) + 7;
+            var actorVfxRemoveAddress = Marshal.ReadIntPtr( actorVfxRemoveAddressTemp + Marshal.ReadInt32( actorVfxRemoveAddressTemp ) + 4 );
 
-            ActorVfxCreate = Marshal.GetDelegateForFunctionPointer<ActorVfxCreateDelegate>( actorVfxCreateAddress );
             ActorVfxRemove = Marshal.GetDelegateForFunctionPointer<ActorVfxRemoveDelegate>( actorVfxRemoveAddress );
-            StaticVfxRemove = Marshal.GetDelegateForFunctionPointer<StaticVfxRemoveDelegate>( staticVfxRemoveAddress );
-            StaticVfxRun = Marshal.GetDelegateForFunctionPointer<StaticVfxRunDelegate>( Dalamud.SigScanner.ScanText( Constants.StaticVfxRunSig ) );
-            StaticVfxCreate = Marshal.GetDelegateForFunctionPointer<VfxObject.Delegates.Create>( staticVfxCreateAddress );
 
             StaticVfxCreateHook = Dalamud.Hooks.HookFromAddress<VfxObject.Delegates.Create>( staticVfxCreateAddress, StaticVfxNewDetour );
-            StaticVfxRemoveHook = Dalamud.Hooks.HookFromAddress<StaticVfxRemoveDelegate>( staticVfxRemoveAddress, StaticVfxRemoveDetour );
-            ActorVfxCreateHook = Dalamud.Hooks.HookFromAddress<ActorVfxCreateDelegate>( actorVfxCreateAddress, ActorVfxNewDetour );
             ActorVfxRemoveHook = Dalamud.Hooks.HookFromAddress<ActorVfxRemoveDelegate>( actorVfxRemoveAddress, ActorVfxRemoveDetour );
-
-            GetMatrixSingleton = Marshal.GetDelegateForFunctionPointer<GetMatrixSingletonDelegate>( Dalamud.SigScanner.ScanText( Constants.GetMatrixSig ) );
-            GetFileManager = Marshal.GetDelegateForFunctionPointer<GetFileManagerDelegate>( Dalamud.SigScanner.ScanText( Constants.GetFileManagerSig ) );
-            GetFileManager2 = Marshal.GetDelegateForFunctionPointer<GetFileManagerDelegate>( Dalamud.SigScanner.ScanText( Constants.GetFileManager2Sig ) );
-            DecRef = Marshal.GetDelegateForFunctionPointer<DecRefDelegate>( Dalamud.SigScanner.ScanText( Constants.DecRefSig ) );
-            RequestFile = Marshal.GetDelegateForFunctionPointer<RequestFileDelegate>( Dalamud.SigScanner.ScanText( Constants.RequestFileSig ) );
-
-            CheckFileStateHook = Dalamud.Hooks.HookFromSignature<CheckFileStatePrototype>( Constants.CheckFileStateSig, CheckFileStateDetour );
-            LoadTexFileLocal = Marshal.GetDelegateForFunctionPointer<LoadTexFileLocalDelegate>( Dalamud.SigScanner.ScanText( Constants.LoadTexFileLocalSig ) );
-            LoadMdlFileLocal = Marshal.GetDelegateForFunctionPointer<LoadMdlFileLocalDelegate>( Dalamud.SigScanner.ScanText( Constants.LoadMdlFileLocalSig ) );
-            LoadMdlFileExternHook = Dalamud.Hooks.HookFromSignature<LoadMdlFileExternDelegate>( Constants.LoadMdlFileExternSig, LoadMdlFileExternDetour );
-
-            PlayActionHook = Dalamud.Hooks.HookFromSignature<PlayActionPrototype>( Constants.PlayActionSig, PlayActionDetour );
-
-            GetLuaVariable = Marshal.GetDelegateForFunctionPointer<LuaVariableDelegate>( Dalamud.SigScanner.ScanText( Constants.LuaGetVariableSig ) );
 
             var luaManagerStart = Dalamud.SigScanner.ScanText( Constants.LuaManagerSig ) + 3;
             var luaManagerOffset = Marshal.ReadInt32( luaManagerStart );
@@ -50,8 +28,8 @@ namespace VfxEditor.Interop {
             var luaActorVariableStart = Dalamud.SigScanner.ScanText( Constants.LuaActorVariableSig ) + 3;
             var luaActorVariableOffset = Marshal.ReadInt32( luaActorVariableStart );
             LuaActorVariables = luaActorVariableStart + 4 + luaActorVariableOffset;
-
-            VfxUseTriggerHook = Dalamud.Hooks.HookFromSignature<VfxUseTriggerDelete>( Constants.CallTriggerSig, VfxUseTriggerDetour );
+            var luaActorVariableCount = Marshal.ReadInt32( luaActorVariableStart + 5 );
+            LuaActorVariableCount = luaActorVariableCount is > 0 and <= 256 ? luaActorVariableCount : 32;
 
             var interleavedVtbl = Dalamud.SigScanner.ScanText( Constants.HavokInterleavedVtblSig ) - 4;
             var interleavedVtblOffset = Marshal.ReadInt32( interleavedVtbl );
@@ -61,17 +39,6 @@ namespace VfxEditor.Interop {
             var mappedVtblOffset = Marshal.ReadInt32( mappedVtbl );
             HavokMapperVtbl = mappedVtbl + 4 + mappedVtblOffset;
 
-            HavokSplineCtor = Marshal.GetDelegateForFunctionPointer<HavokSplineCtorDelegate>( Dalamud.SigScanner.ScanText( Constants.HavokSplineCtorSig ) );
-
-            PlaySoundPath = Marshal.GetDelegateForFunctionPointer<PlaySoundDelegate>( Dalamud.SigScanner.ScanText( Constants.PlaySoundSig ) );
-            InitSoundHook = Dalamud.Hooks.HookFromSignature<InitSoundPrototype>( Constants.InitSoundSig, InitSoundDetour );
-
-            LuaRead = Marshal.GetDelegateForFunctionPointer<LuaReadDelegate>( Dalamud.SigScanner.ScanText( Constants.LuaReadSig ) );
-
-            HumanSetupScalingHook = Dalamud.Hooks.HookFromAddress<CharacterBaseSetupScalingDelegate>( HumanVTable[58], SetupScaling );
-            HumanCreateDeformerHook = Dalamud.Hooks.HookFromAddress<CharacterBaseCreateDeformerDelegate>( HumanVTable[101], CreateDeformer );
-
-            ReadSqpackHook.Enable();
             GetResourceSyncHook.Enable();
             GetResourceAsyncHook.Enable();
 
@@ -80,25 +47,11 @@ namespace VfxEditor.Interop {
             ActorVfxCreateHook.Enable();
             ActorVfxRemoveHook.Enable();
 
-            CheckFileStateHook.Enable();
-            LoadMdlFileExternHook.Enable();
-            TextureOnLoadHook.Enable();
-            SoundOnLoadHook.Enable();
-
             PlayActionHook.Enable();
-            VfxUseTriggerHook.Enable();
             InitSoundHook.Enable();
-
-            HumanSetupScalingHook.Enable();
-            HumanCreateDeformerHook.Enable();
-
-            PathResolved += AddCrc;
         }
 
         public void Dispose() {
-            PathResolved -= AddCrc;
-
-            ReadSqpackHook.Dispose();
             GetResourceSyncHook.Dispose();
             GetResourceAsyncHook.Dispose();
 
@@ -107,17 +60,8 @@ namespace VfxEditor.Interop {
             ActorVfxCreateHook.Dispose();
             ActorVfxRemoveHook.Dispose();
 
-            CheckFileStateHook.Dispose();
-            LoadMdlFileExternHook.Dispose();
-            TextureOnLoadHook.Dispose();
-            SoundOnLoadHook.Dispose();
-
             PlayActionHook.Dispose();
-            VfxUseTriggerHook.Dispose();
             InitSoundHook.Dispose();
-
-            HumanSetupScalingHook.Dispose();
-            HumanCreateDeformerHook.Dispose();
         }
     }
 }

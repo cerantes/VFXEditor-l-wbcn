@@ -16,7 +16,10 @@ namespace VfxEditor.Formats.TextureFormat.Textures {
 
         public readonly bool Penumbra;
 
-        public TexturePreview( TextureDataFile file, bool penumbra, string gamePath ) : base( gamePath ) {
+        private readonly string SourcePath;
+
+        public TexturePreview( TextureDataFile file, string sourcePath, bool penumbra, string gamePath ) : base( gamePath ) {
+            SourcePath = sourcePath;
             Format = file.Header.Format;
             MipLevels = file.Header.MipLevelsCount;
             Width = file.Header.Width;
@@ -68,7 +71,7 @@ namespace VfxEditor.Formats.TextureFormat.Textures {
 
             if( Penumbra ) {
                 ImGui.SameLine();
-                using var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.DALAMUD_ORANGE );
+                using var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.YELLOW_ACCENT );
                 ImGui.Text( "[Penumbra]" );
             }
 
@@ -77,7 +80,9 @@ namespace VfxEditor.Formats.TextureFormat.Textures {
 
         protected override void OnReplace( string importPath ) => Plugin.TextureManager.ReplaceTexture( importPath, GamePath );
 
-        protected override TextureDataFile GetRawData() => Dalamud.DataManager.GetFile<TextureDataFile>( GamePath );
+        protected override TextureDataFile GetRawData() => System.IO.Path.IsPathRooted( SourcePath ) ?
+            TextureDataFile.LoadFromLocal( SourcePath ) :
+            Dalamud.DataManager.GetFile<TextureDataFile>( SourcePath );
 
         protected override TexturePreview GetPreview() => this;
     }

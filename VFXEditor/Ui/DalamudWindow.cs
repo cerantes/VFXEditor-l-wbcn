@@ -1,7 +1,9 @@
-using Dalamud.Interface.Windowing;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Windowing;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.Utils;
+using static VfxEditor.Interop.Penumbra.PenumbraRequiredWindow;
 
 namespace VfxEditor.Ui {
     public abstract class DalamudWindow : Window {
@@ -14,8 +16,11 @@ namespace VfxEditor.Ui {
         private Vector2? LastPosition;
         private Vector2? LastSize;
 
+        // Used so we can override the frames, since ImGuiCond.Once can only be fired 1 time per session
+        private int OverrideFrames = 0;
+
         public DalamudWindow( string name, bool menuBar, Vector2 size, WindowSystem windowSystem, bool isMainWindow = false ) :
-            base( name, ( menuBar ? ImGuiWindowFlags.MenuBar : ImGuiWindowFlags.None ) | ImGuiWindowFlags.NoDocking ) {
+            base( UiUtils.WindowId( name ), ( menuBar ? ImGuiWindowFlags.MenuBar : ImGuiWindowFlags.None ) | ImGuiWindowFlags.NoDocking ) {
 
             Size = size;
             SizeCondition = ImGuiCond.FirstUseEver;
@@ -57,6 +62,11 @@ namespace VfxEditor.Ui {
                 else
                     Flags &= ~( ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoMove );
             }
+
+            if( OverrideFrames > 0 && --OverrideFrames == 0 ) {
+                Size = null;
+                Position = null;
+            }
         }
 
         public virtual WorkspaceWindow ToMeta() => new() {
@@ -66,13 +76,19 @@ namespace VfxEditor.Ui {
 
         public virtual void SetMeta( WorkspaceWindow? meta ) {
             if( meta?.Size != null ) {
-                SizeCondition = ImGuiCond.Appearing;
                 Size = meta?.Size;
+                SizeCondition = ImGuiCond.Always;
+                OverrideFrames = 2;
             }
             if( meta?.Position != null ) {
-                PositionCondition = ImGuiCond.Appearing;
                 Position = meta?.Position;
+                PositionCondition = ImGuiCond.Always;
+                OverrideFrames = 2;
             }
+        }
+
+        public override bool DrawConditions() { // Generally, nothing should be drawn if Penumbra isn't loaded
+            return Plugin.PenumbraRequiredWindow?.Status == PenumbraStatus.OK;
         }
     }
 }

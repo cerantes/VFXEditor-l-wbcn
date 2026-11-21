@@ -1,8 +1,13 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Components;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C075 : TmbEntry {
         public const string MAGIC = "C075";
         public const string DISPLAY_NAME = "地形视效";
@@ -14,7 +19,7 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedBool Enabled = new( "启用" );
         private readonly ParsedInt Unk1 = new( "未知 1" );
-        private readonly ParsedInt Shape = new( "形状" );
+        private readonly ParsedEnum<TerrainShape> Shape = new( "形状" );
         private readonly TmbOffsetFloat3 Scale = new( "缩放", defaultValue: new( 1 ) );
         private readonly TmbOffsetAngle3 Rotation = new( "旋转" );
         private readonly TmbOffsetFloat3 Position = new( "位置" );

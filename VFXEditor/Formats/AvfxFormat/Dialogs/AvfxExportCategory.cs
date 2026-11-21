@@ -1,9 +1,10 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System.Collections.Generic;
+using VfxEditor.Formats.AvfxFormat.Nodes;
 using VfxEditor.Utils;
 
-namespace VfxEditor.AvfxFormat.Dialogs {
+namespace VfxEditor.Formats.AvfxFormat.Dialogs {
     public abstract class AvfxExportCategory {
         public abstract HashSet<AvfxNode> GetSelectedNodes();
         public abstract void Reset();
@@ -51,7 +52,7 @@ namespace VfxEditor.AvfxFormat.Dialogs {
             ImGui.SameLine();
             var selectedCount = Selected.Count;
             var totalCount = Group.Items.Count;
-            using var color = ImRaii.PushColor( ImGuiCol.Text, selectedCount == totalCount ? UiUtils.PARSED_GREEN : UiUtils.DALAMUD_ORANGE, selectedCount > 0 );
+            using var color = ImRaii.PushColor( ImGuiCol.Text, selectedCount == totalCount ? UiUtils.PARSED_GREEN : UiUtils.YELLOW_ACCENT, selectedCount > 0 );
             ImGui.SetNextItemOpen( false, ImGuiCond.FirstUseEver );
             if( ImGui.CollapsingHeader( $"{HeaderText} [{selectedCount}/{totalCount}]##{HeaderText}" ) ) {
                 color.Pop();

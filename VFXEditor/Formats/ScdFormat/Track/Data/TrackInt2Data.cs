@@ -1,7 +1,8 @@
 ﻿using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Track.Data {
     public class TrackInt2Data : ScdTrackData {
         public readonly ParsedInt Value1 = new( "值 1" );
         public readonly ParsedInt Value2 = new( "值 2" );

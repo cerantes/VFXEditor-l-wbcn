@@ -6,14 +6,17 @@ namespace VfxEditor.Formats.ScdFormat.Utils {
         public static string VorbisHeader => Path.Combine( Plugin.RootLocation, "Files", "vorbis_header.bin" );
 
         public static void ConvertWavToOgg( string wavPath ) {
+            File.Delete( ScdManagerGroup.ConvertOgg );
             InteropUtils.Run( "oggenc2.exe", $"-s 0  --resample 44100 -o \"{ScdManagerGroup.ConvertOgg}\" \"{wavPath}\"", false, out var _ );
         }
 
         public static void ConvertToAdpcm( string wavPath ) {
+            File.Delete( ScdManagerGroup.ConvertWav );
             InteropUtils.Run( "adpcmencode3.exe", $"-b 256 \"{wavPath}\" \"{ScdManagerGroup.ConvertWav}\"", false, out var _ );
         }
 
         public static void ConvertToHca( string wavPath ) {
+            File.Delete( ScdManagerGroup.ConvertHca );
             InteropUtils.Run( "VGAudioCli.exe", $"\"{wavPath}\" \"{ScdManagerGroup.ConvertHca}\"", false, out var _ );
         }
 
@@ -45,8 +48,9 @@ namespace VfxEditor.Formats.ScdFormat.Utils {
             var pos = 0;
             var currentBlockStart = 0;
 
-            while( pos + blockSize <= data.Length ) {
-                for( var i = 0; i < blockSize; i++ ) {
+            // XOR is symmetric, so this is also used for encoding
+            while( pos < data.Length ) {
+                for( var i = 0; i < blockSize && pos + i < data.Length; i++ ) {
                     var tableIdx = ( seed + i + currentBlockStart + v47 ) & 0xFF;
                     var value = data[pos + i];
                     writer.Write( ( byte )( value ^ XORTABLE[tableIdx] ^ v48 ) ); // write decoded

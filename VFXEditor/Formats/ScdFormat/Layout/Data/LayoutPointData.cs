@@ -1,15 +1,20 @@
-﻿using System;
-using VfxEditor.Parsing;
+using System;
+using VfxEditor.Parsing.Flag;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
+using VfxEditor.Parsing.Reserve;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Layout.Data {
     [Flags]
     public enum PointEnvironmentFlags {
+        Use_Env_Filter_Unknown = 0x02, //zone ambient loops vs. *_nofilter.scd
         Use_Env_Filter_Depth = 0x40,
         Is_FireWorks = 0x80
     }
 
     [Flags]
     public enum PointFlags {
+        Point_Flag_Unknown = 0x02,
         Is_Reverb_Object = 0x40,
         Is_Whiz_Generate = 0x80
     }

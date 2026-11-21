@@ -2,6 +2,7 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.Data.Command;
 using VfxEditor.Data.Copy;
 using VfxEditor.Utils;
@@ -19,14 +20,14 @@ namespace VfxEditor.FileManager {
             CheckKeybinds();
 
             WindowSystem.Draw();
-            WindowName =
+            WindowName = UiUtils.WindowId(
 #if BETA
                 $"[BETA] {Title}"
 #else
                 Title
 #endif
                 + ( string.IsNullOrEmpty( Plugin.CurrentWorkspaceName ) ? "" : $" [{Plugin.CurrentWorkspaceName}]" )
-                + $"###{Title}-{WindowId}";
+                + $"###{Title}-{WindowId}" );
 
             using var _ = ImRaii.PushId( $"{FormatName}-{WindowId}" );
             DrawMenu();
@@ -36,7 +37,7 @@ namespace VfxEditor.FileManager {
             }
 
             if( ActiveDocument == null ) { // No documents, make it clear how to add a new one
-                ImGui.SetCursorPos( ImGui.GetCursorPos() + new Vector2( (ImGui.GetContentRegionAvail().X - 150f) / 2f, 25f) );
+                ImGui.SetCursorPos( ImGui.GetCursorPos() + new Vector2( ( ImGui.GetContentRegionAvail().X - 150f ) / 2f, 25f ) );
                 if( ImGui.Button( "新建", new( 150, 35 ) ) ) AddDocument();
 
                 return;
@@ -52,7 +53,6 @@ namespace VfxEditor.FileManager {
             Plugin.DrawFileMenu( this, Group );
 
             if( ImGui.BeginMenu( "编辑" ) ) {
-                CommandManager.Draw();
                 CopyManager.Draw();
                 DrawEditMenuItems();
                 ImGui.EndMenu();
@@ -61,7 +61,7 @@ namespace VfxEditor.FileManager {
             if( !Plugin.Configuration.ShowTabBar && ImGui.MenuItem( "文档" ) ) DocumentWindow.Show();
 
             ImGui.Separator();
-            Plugin.DrawManagersMenu( this );
+            Plugin.DrawManagersMenu( Group );
 
             ImGui.EndMenuBar();
         }
@@ -83,7 +83,7 @@ namespace VfxEditor.FileManager {
             using var _ = ImRaii.PushId( "Tabs" );
 
             var size = ImGui.GetContentRegionAvail().X;
-            var popupSize = UiUtils.GetPaddedIconSize( FontAwesomeIcon.ArrowUpRightFromSquare ) + UiUtils.GetPaddedIconSize( FontAwesomeIcon.PaintBrush );
+            var popupSize = UiUtils.GetPaddedIconSize( FontAwesomeIcon.Bars );
 
             using( var child = ImRaii.Child( "子级", new Vector2( size - popupSize, ImGui.GetFrameHeightWithSpacing() ) ) ) {
                 using var tabs = ImRaii.TabBar( "TabBar", ImGuiTabBarFlags.NoCloseWithMiddleMouseButton );
@@ -133,23 +133,13 @@ namespace VfxEditor.FileManager {
             var prePopoutPos = ImGui.GetCursorScreenPos();
             using( var transparentButtonStyle = ImRaii.PushColor( ImGuiCol.Button, new Vector4( 0 ) ) )
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( ImGui.Button( FontAwesomeIcon.ArrowUpRightFromSquare.ToIconString() ) ) DocumentWindow.Show();
-
-                using( var buttonColor = ImRaii.PushColor( ImGuiCol.Text, WindowColor, UseWindowColor )) {
-                    ImGui.SameLine();
-                    if( ImGui.Button( FontAwesomeIcon.PaintBrush.ToIconString() ) ) ImGui.OpenPopup( "WindowColorPicker" );
-                }
+                if( ImGui.Button( FontAwesomeIcon.Bars.ToIconString() ) ) DocumentWindow.Show();
+                UiUtils.Tooltip( "打开文档列表" );
 
                 drawlist.AddLine( new Vector2( prePopoutPos.X, preDropdownPos.Y ), new Vector2( prePopoutPos.X + popupSize, preDropdownPos.Y ), color, 1 );
             }
 
             smallItemSpacing.Pop();
-
-            using var windowPopup = ImRaii.Popup( "WindowColorPicker" );
-            if( windowPopup ) {
-                ImGui.Checkbox( "使用自定义窗口颜色", ref UseWindowColor );
-                ImGui.ColorPicker4( "##Color", ref WindowColor, ImGuiColorEditFlags.NoSidePreview | ImGuiColorEditFlags.AlphaBar );
-            }
         }
 
         private void DrawTabsDropdown() {
@@ -173,7 +163,7 @@ namespace VfxEditor.FileManager {
             base.PreDraw();
 
             ImGui.PushStyleColor( ImGuiCol.TitleBg, UseWindowColor ? WindowColor :
-                ( Configuration.UseCustomWindowColor ? Configuration.TitleBg : *ImGui.GetStyleColorVec4(ImGuiCol.TitleBg) ) );
+                ( Configuration.UseCustomWindowColor ? Configuration.TitleBg : *ImGui.GetStyleColorVec4( ImGuiCol.TitleBg ) ) );
 
             ImGui.PushStyleColor( ImGuiCol.TitleBgActive, UseWindowColor ? WindowColor :
                 ( Configuration.UseCustomWindowColor ? Configuration.TitleBgActive : *ImGui.GetStyleColorVec4( ImGuiCol.TitleBgActive ) ) );

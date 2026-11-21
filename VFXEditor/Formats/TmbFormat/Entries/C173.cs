@@ -1,10 +1,15 @@
 ﻿using Dalamud.Interface;
 using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Components;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 using VfxEditor.Spawn;
-using VfxEditor.TmbFormat.Utils;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C173 : TmbEntry {
         public const string MAGIC = "C173";
         public const string DISPLAY_NAME = "Async VFX";
@@ -25,11 +30,12 @@ namespace VfxEditor.TmbFormat.Entries {
                     else VfxSpawn.OnSelf( path, false );
                 }
             }
-        ], false );
-        private readonly ParsedShort BindPoint1 = new( "绑定点 1", value: 1 );
-        private readonly ParsedShort BindPoint2 = new( "绑定点 2", value: 0xFF );
-        private readonly ParsedInt Visibility = new( "可见性" );
-        private readonly ParsedInt Limit = new( "限制" );
+        ], false, "vfx/replace_me.avfx" );
+        private readonly ParsedEnum<BindUser> BindOrigin1 = new( "绑定点 1 原点", size: 1 );
+        private readonly ParsedEnum<BindType> BindType1 = new( "绑定点 1 类型", size: 1 );
+        private readonly ParsedShort BindId1 = new( "绑定点 1", value: -1 );
+        private readonly ParsedBool Visibility = new( "覆盖战斗特效设置" );
+        private readonly ParsedInt Limit = new( "实例上限（1-8）" );
         private readonly ParsedInt Unk5 = new( "未知 5" );
         private readonly ParsedInt Unk6 = new( "未知 6" );
         private readonly ParsedInt Unk7 = new( "未知 7" );
@@ -47,8 +53,9 @@ namespace VfxEditor.TmbFormat.Entries {
             Loop,
             Unk2,
             Path,
-            BindPoint1,
-            BindPoint2,
+            BindOrigin1,
+            BindType1,
+            BindId1,
             Visibility,
             Limit,
             Unk5,

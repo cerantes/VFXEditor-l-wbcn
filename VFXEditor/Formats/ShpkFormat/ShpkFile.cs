@@ -1,18 +1,21 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Bindings.ImGui;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using VfxEditor.Data.Command;
 using VfxEditor.FileManager;
 using VfxEditor.Formats.ShpkFormat.Keys;
 using VfxEditor.Formats.ShpkFormat.Materials;
 using VfxEditor.Formats.ShpkFormat.Nodes;
 using VfxEditor.Formats.ShpkFormat.Shaders;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Bool;
 using VfxEditor.Ui.Components;
+using VfxEditor.Ui.Components.Dropdowns;
 using VfxEditor.Ui.Components.SplitViews;
 using VfxEditor.Utils;
 using static VfxEditor.Utils.ShaderUtils;
@@ -385,7 +388,7 @@ namespace VfxEditor.Formats.ShpkFormat {
             using var _ = ImRaii.PushId( "MaterialParameters" );
 
             ImGui.Dummy( Vector2.One );
-            using var table = ImRaii.Table( "Table", 5, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY, new( ImGui.GetContentRegionAvail().X, 200 ) );
+            using var table = ImRaii.Table( "Table", 5, ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.NoSavedSettings, new( ImGui.GetContentRegionAvail().X, 200 ) );
             if( !table ) return;
 
             using( var font = ImRaii.PushFont( UiBuilder.MonoFont ) ) {
@@ -418,7 +421,7 @@ namespace VfxEditor.Formats.ShpkFormat {
                     using var disabled = ImRaii.Disabled( parameter == null || slot != parameter.StartSlot );
                     using var none = ImRaii.PushColor( ImGuiCol.Text, UiUtils.RED_COLOR, parameter == null );
                     using var selected = ImRaii.PushColor( ImGuiCol.Text, UiUtils.PARSED_GREEN, parameter != null && parameter == MaterialParameterView.GetSelected() );
-                    using var multiple = ImRaii.PushColor( ImGuiCol.Text, UiUtils.DALAMUD_ORANGE, parameters.Count > 1 );
+                    using var multiple = ImRaii.PushColor( ImGuiCol.Text, UiUtils.YELLOW_ACCENT, parameters.Count > 1 );
 
                     if( ImGui.Selectable( parameter == null ? "[无]" : $"参数 {MaterialParameters.IndexOf( parameter )}" ) && parameter != null ) {
                         MaterialParameterView.SetSelected( parameter );

@@ -4,24 +4,24 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
+using VfxEditor.Data;
 using VfxEditor.FileBrowser;
 using VfxEditor.FileManager.Interfaces;
 using VfxEditor.Formats.TextureFormat.Textures;
 using VfxEditor.Formats.TextureFormat.Ui;
+using VfxEditor.Interop.Penumbra;
 using VfxEditor.Select;
 using VfxEditor.Ui;
 using VfxEditor.Ui.Export;
 using VfxEditor.Utils;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace VfxEditor.Formats.TextureFormat {
     public class TextureManager : DalamudWindow, IFileManagerGroup, IFileManagerSelect {
-        private static string WORKSPACE_KEY = "Tex";
+        private static readonly string WORKSPACE_KEY = "Tex";
 
         private int TEX_ID = 0;
         public static string TempAtex => Path.Combine( Plugin.Configuration.WriteLocation, "temp_convert.atex" ).Replace( '\\', '/' );
-        public static string TempPng => Path.Combine( Plugin.Configuration.WriteLocation, "temp_png.png" ).Replace( '\\', '/' );
+        public static string TempEdit => Path.Combine( Plugin.Configuration.WriteLocation, "temp_edit.atex" ).Replace( '\\', '/' );
 
         public readonly WindowSystem WindowSystem = new();
 
@@ -30,6 +30,7 @@ namespace VfxEditor.Formats.TextureFormat {
 
         private readonly List<TextureReplace> Textures = [];
         private readonly Dictionary<string, TexturePreview> Previews = [];
+        private readonly HashSet<string> FailedPreviews = []; // Don't re-read and re-log broken textures every frame
         private readonly TextureView View;
         private readonly ManagerConfiguration Configuration;
 
@@ -52,14 +53,16 @@ namespace VfxEditor.Formats.TextureFormat {
 
         public void ReplaceTexture( string importPath, string gamePath ) {
             var replace = new TextureReplace( gamePath, GetNewWriteLocation( gamePath ) );
-            replace.ImportFile( importPath );
+            if( !replace.ImportFile( importPath ) ) return;
             Textures.Add( replace );
+            PenumbraTempMod.MarkDirty();
         }
 
         public void RemoveReplace( TextureReplace replace ) {
             Textures.Remove( replace );
             View.ClearSelected();
             ExportDialog.RemoveDocument( replace );
+            PenumbraTempMod.MarkDirty();
         }
 
         public void Import( SelectResult result ) {
@@ -95,6 +98,7 @@ namespace VfxEditor.Formats.TextureFormat {
             }
 
             if( Previews.TryGetValue( gamePath, out var preview ) ) return preview;
+            if( FailedPreviews.Contains( gamePath ) ) return null;
 
             var gameFileExists = Dalamud.GameFileExists( gamePath );
             var penumbraFileExits = Plugin.PenumbraIpc.PenumbraFileExists( gamePath, out var penumbraPath );
@@ -102,23 +106,23 @@ namespace VfxEditor.Formats.TextureFormat {
             if( !gameFileExists && !penumbraFileExits ) return new TextureMissing( gamePath );
 
             try {
-                var data = penumbraFileExits ?
-                    ( Path.IsPathRooted( penumbraPath ) ?
-                        TextureDataFile.LoadFromLocal( penumbraPath ) :
-                        Dalamud.DataManager.GetFile<TextureDataFile>( penumbraPath )
-                    ) :
-                    Dalamud.DataManager.GetFile<TextureDataFile>( gamePath );
+                var sourcePath = penumbraFileExits ? penumbraPath : gamePath;
+                var data = Path.IsPathRooted( sourcePath ) ?
+                    TextureDataFile.LoadFromLocal( sourcePath ) :
+                    Dalamud.DataManager.GetFile<TextureDataFile>( sourcePath );
 
                 if( !data.ValidFormat ) {
                     Dalamud.Error( $"非法格式: {data.Header.Format} {gamePath}" );
+                    FailedPreviews.Add( gamePath );
                     return null;
                 }
-                var newPreview = new TexturePreview( data, penumbraFileExits, gamePath );
+                var newPreview = new TexturePreview( data, sourcePath, penumbraFileExits, gamePath );
                 Previews[gamePath] = newPreview;
                 return newPreview;
             }
             catch( Exception e ) {
                 Dalamud.Error( e, $"无法找到材质: {gamePath}" );
+                FailedPreviews.Add( gamePath );
                 return null;
             }
         }
@@ -186,6 +190,7 @@ namespace VfxEditor.Formats.TextureFormat {
         public void Reset( bool pluginClosing ) {
             Textures.Clear();
             Previews.Clear();
+            FailedPreviews.Clear();
 
             // Weird async stuff, otherwise cleanup happens to the textures after they've been loaded
             WrapsToCleanup.Clear();
@@ -208,48 +213,13 @@ namespace VfxEditor.Formats.TextureFormat {
 
         // =======================
 
-        public static void LoadLibrary() {
-            // Set paths manually since TexImpNet can be dumb sometimes
-            // Using the 32-bit version in all cases because net6, I guess
-            var runtimeRoot = Path.Combine( Plugin.RootLocation, "runtimes" );
-
-            var freeImgLib = TeximpNet.Unmanaged.FreeImageLibrary.Instance;
-            var _32bitPath = Path.Combine( runtimeRoot, "win-x64", "native", "FreeImage.dll" );
-            var _64bitPath = Path.Combine( runtimeRoot, "win-x86", "native", "FreeImage.dll" );
-            freeImgLib.Resolver.SetOverrideLibraryName32( _32bitPath );
-            freeImgLib.Resolver.SetOverrideLibraryName64( _32bitPath );
-            Dalamud.Log( $"FreeImage TeximpNet 路径: {_32bitPath} / {_64bitPath}" );
-            Dalamud.Log( $"FreeImage 默认名称: {freeImgLib.DefaultLibraryName} 已加载库: {freeImgLib.IsLibraryLoaded}" );
-            freeImgLib.LoadLibrary();
-            Dalamud.Log( $"FreeImage 库路径: {freeImgLib.LibraryPath} 已加载库: {freeImgLib.IsLibraryLoaded}" );
-
-            var nvtLib = TeximpNet.Unmanaged.NvTextureToolsLibrary.Instance;
-            var nv_32bitPath = Path.Combine( runtimeRoot, "win-x64", "native", "nvtt.dll" );
-            var nv_64bitPath = Path.Combine( runtimeRoot, "win-x86", "native", "nvtt.dll" );
-            nvtLib.Resolver.SetOverrideLibraryName32( nv_32bitPath );
-            nvtLib.Resolver.SetOverrideLibraryName64( nv_32bitPath );
-            Dalamud.Log( $"NVT TeximpNet 路径: {nv_32bitPath} / {nv_64bitPath}" );
-            Dalamud.Log( $"NVT 默认名称: {nvtLib.DefaultLibraryName} 已加载库: {nvtLib.IsLibraryLoaded}" );
-            nvtLib.LoadLibrary();
-            Dalamud.Log( $"NVT 库路径: {nvtLib.LibraryPath} 已加载库: {nvtLib.IsLibraryLoaded}" );
-        }
-
-        public static void FreeLibrary() {
-            TeximpNet.Unmanaged.FreeImageLibrary.Instance.FreeLibrary();
-            TeximpNet.Unmanaged.NvTextureToolsLibrary.Instance.FreeLibrary();
-            Dalamud.Log( $"已加载 FreeImage 库: {TeximpNet.Unmanaged.FreeImageLibrary.Instance.IsLibraryLoaded}" );
-            Dalamud.Log( $"已加载 NVTT 库: {TeximpNet.Unmanaged.NvTextureToolsLibrary.Instance.IsLibraryLoaded}" );
-        }
-
         public WindowSystem GetWindowSystem() => WindowSystem;
 
-        public bool CanImport( string path )
-        {
-            return path.EndsWith( "atex" );
+        public bool CanImport( string path ) {
+            return path.EndsWith( "atex", StringComparison.Ordinal );
         }
 
-        public void PenumbraImport( SelectResult selectedFile, SelectResult replacedFile )
-        {
+        public void PenumbraImport( SelectResult selectedFile, SelectResult replacedFile ) {
             ReplaceTexture( selectedFile.Path, replacedFile.Name );
         }
     }

@@ -1,15 +1,16 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Bindings.ImGui;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using VfxEditor.FileBrowser;
+using VfxEditor.Formats.TmbFormat.Track;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
 using VfxEditor.Utils;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public abstract class TmbEntry : TmbItemWithTime {
         public abstract string DisplayName { get; }
         public virtual DangerLevel Danger => DangerLevel.None;
@@ -50,12 +51,14 @@ namespace VfxEditor.TmbFormat.Entries {
                     if( ImGui.Button( FontAwesomeIcon.Save.ToIconString() ) ) {
                         SaveDialog();
                     }
+                    UiUtils.Tooltip( "导出条目" );
 
                     ImGui.SameLine();
                     if( ImGui.Button( FontAwesomeIcon.Copy.ToIconString() ) ) {
                         track.DuplicateEntry( this );
                         return true;
                     }
+                    UiUtils.Tooltip( "复制条目" );
                 }
 
                 DrawBody();
@@ -107,7 +110,7 @@ namespace VfxEditor.TmbFormat.Entries {
         public static bool DoColor( DangerLevel level, out Vector4 color ) {
             color = new( 1 );
             if( level < DangerLevel.Yellow ) return false;
-            else if( level == DangerLevel.Yellow ) color = UiUtils.DALAMUD_ORANGE;
+            else if( level == DangerLevel.Yellow ) color = UiUtils.YELLOW_ACCENT;
             else color = UiUtils.RED_COLOR;
 
             return true;

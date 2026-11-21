@@ -3,6 +3,7 @@ using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using System;
+using VfxEditor.Data.Command;
 
 namespace VfxEditor {
     public class Dalamud {
@@ -17,6 +18,7 @@ namespace VfxEditor {
         [PluginService] public static ITargetManager TargetManager { get; private set; } = null!;
         [PluginService] public static IKeyState KeyState { get; private set; } = null!;
         [PluginService] public static ITextureProvider TextureProvider { get; private set; } = null!;
+        [PluginService] public static ITextureReadbackProvider TextureReadbackProvider { get; private set; } = null!;
         [PluginService] public static IPluginLog PluginLog { get; private set; } = null!;
         [PluginService] public static IGameInteropProvider Hooks { get; private set; } = null!;
         [PluginService] public static INotificationManager Notification { get; private set; } = null!;

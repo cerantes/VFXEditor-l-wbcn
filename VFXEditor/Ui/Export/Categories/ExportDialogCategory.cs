@@ -27,9 +27,9 @@ namespace VfxEditor.Ui.Export.Categories {
 
             ImGui.SameLine();
             var selectedCount = GetItemsToExport().Count();
-            var totalCount = Group.GetDocuments().Where( x => x.CanExport() ).Count();
-            using var color = ImRaii.PushColor( ImGuiCol.Text, selectedCount == totalCount ? UiUtils.PARSED_GREEN : UiUtils.DALAMUD_ORANGE, selectedCount > 0 );
-            if( ImGui.CollapsingHeader( $"{id} [{selectedCount}/{totalCount}]##{id}" ) ) {
+            var totalCount = Group.GetDocuments().Count( x => x.CanExport() );
+            using var color = ImRaii.PushColor( ImGuiCol.Text, selectedCount == totalCount ? UiUtils.PARSED_GREEN : UiUtils.YELLOW_ACCENT, selectedCount > 0 );
+            if( ImGui.CollapsingHeader( $"{id} [{selectedCount}/{totalCount}]###{id}" ) ) {
                 color.Pop();
 
                 using var indent = ImRaii.PushIndent();
@@ -37,7 +37,7 @@ namespace VfxEditor.Ui.Export.Categories {
                 var items = Group.GetDocuments();
                 if( !items.Any() ) return;
 
-                using var table = ImRaii.Table( "##Table", 3, ImGuiTableFlags.RowBg );
+                using var table = ImRaii.Table( "##Table", 3, ImGuiTableFlags.RowBg | ImGuiTableFlags.NoSavedSettings );
                 if( !table ) return;
 
                 ImGui.TableSetupColumn( "##Check", ImGuiTableColumnFlags.WidthFixed, 20 );
@@ -83,8 +83,14 @@ namespace VfxEditor.Ui.Export.Categories {
         public void WorkspaceImport( Dictionary<string, string> files, Dictionary<IFileManagerGroup, int> offsets ) {
             if( !files.TryGetValue( Group.GetId(), out var data ) ) return;
             var indexes = JsonConvert.DeserializeObject<int[]>( data );
+            if( indexes == null ) return;
             var documents = Group.GetDocuments().ToList();
-            foreach( var index in indexes ) ToExport[documents[index + ( offsets.TryGetValue( Group, out var offset ) ? offset : 0 )]] = true;
+            var offset = offsets.TryGetValue( Group, out var groupOffset ) ? groupOffset : 0;
+            foreach( var index in indexes ) {
+                // Documents whose files failed to load are skipped, so an index may no longer exist
+                var documentIdx = index + offset;
+                if( documentIdx >= 0 && documentIdx < documents.Count ) ToExport[documents[documentIdx]] = true;
+            }
         }
 
         public void WorkspaceExport( Dictionary<string, string> files ) {

@@ -1,5 +1,8 @@
 using Lumina.Excel.Sheets;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using VfxEditor.Select.Base;
 
 namespace VfxEditor.Select.Tabs.Bgm {
     public class BgmTab : SelectTab<BgmRow> {
@@ -8,8 +11,19 @@ namespace VfxEditor.Select.Tabs.Bgm {
         // ===== LOADING =====
 
         public override void LoadData() {
+            var idToTitle = new Dictionary<int, string>();
+            try {
+                fastCSV.ReadFile<object>( SelectDataUtils.OrchestrionPath, true, ',', ( _, columns ) => {
+                    if( int.TryParse( columns[0], out var id ) ) idToTitle[id] = columns[1];
+                    return false;
+                } );
+            }
+            catch( Exception e ) {
+                Dalamud.Error( e, $"读取 csv 出错 {SelectDataUtils.OrchestrionPath}" );
+            }
+
             var sheet = Dalamud.DataManager.GetExcelSheet<BGM>().Where( x => !string.IsNullOrEmpty( x.File.ExtractText() ) );
-            foreach( var item in sheet ) Items.Add( new BgmRow( item ) );
+            foreach( var item in sheet ) Items.Add( new BgmRow( item, idToTitle ) );
         }
 
         // ===== DRAWING ======

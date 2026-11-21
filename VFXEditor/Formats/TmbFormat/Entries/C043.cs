@@ -1,8 +1,12 @@
-﻿using System.Collections.Generic;
+using Dalamud.Interface.Utility.Raii;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C043 : TmbEntry {
         public const string MAGIC = "C043";
         public const string DISPLAY_NAME = "召唤武器";
@@ -14,7 +18,7 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedInt Duration = new( "持续时间" );
         private readonly ParsedInt Unk1 = new( "未知 1" );
-        private readonly ParsedInt Unk2 = new( "未知 2" );
+        private readonly ParsedEnum<C043Type> Type = new( "类型" );
         private readonly ParsedShort WeaponId = new( "武器 ID" );
         private readonly ParsedShort BodyId = new( "身体 ID" );
         private readonly ParsedInt VariantId = new( "分支 ID" );
@@ -26,10 +30,22 @@ namespace VfxEditor.TmbFormat.Entries {
         protected override List<ParsedBase> GetParsed() => [
             Duration,
             Unk1,
-            Unk2,
+            Type,
             WeaponId,
             BodyId,
             VariantId
         ];
+
+        public override void DrawBody() {
+            DrawHeader();
+            Unk1.Draw();
+            Type.Draw();
+
+            using( var disabled = ImRaii.Disabled( Type.Value != C043Type.Use_Weapon_Id ) ) {
+                WeaponId.Draw();
+                BodyId.Draw();
+                VariantId.Draw();
+            }
+        }
     }
 }

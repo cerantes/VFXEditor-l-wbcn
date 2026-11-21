@@ -1,17 +1,15 @@
 ﻿using Dalamud.Interface;
 using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Components;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Flag;
+using VfxEditor.Parsing.Int;
 using VfxEditor.Spawn;
-using VfxEditor.TmbFormat.Utils;
 
-namespace VfxEditor.TmbFormat.Entries {
-    public enum VfxVisibility {
-        Default_no_Triggers = 0,
-        Default_with_Triggers = 1,
-        Always_no_Triggers = 2,
-        Always_with_Triggers = 3,
-    }
-
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C012 : TmbEntry {
         public const string MAGIC = "C012";
         public const string DISPLAY_NAME = "视效";
@@ -32,16 +30,18 @@ namespace VfxEditor.TmbFormat.Entries {
                     else VfxSpawn.OnSelf( path, false );
                 }
             }
-        ], false );
-        private readonly ParsedShort BindPoint1 = new( "绑定点 1", value: 1 );
-        private readonly ParsedShort BindPoint2 = new( "绑定点 2", value: 0xFF );
-        private readonly ParsedShort BindPoint3 = new( "绑定点 3", value: 2 );
-        private readonly ParsedShort BindPoint4 = new( "绑定点 4", value: 0xFF );
+        ], false, "vfx/replace_me.avfx" );
+        private readonly ParsedEnum<BindUser> BindOrigin1 = new( "绑定点 1 原点", size: 1 );
+        private readonly ParsedEnum<BindType> BindType1 = new( "绑定点 1 类型", size: 1 );
+        private readonly ParsedShort BindId1 = new( "绑定点 1", value: -1 );
+        private readonly ParsedEnum<BindUser> BindOrigin2 = new( "绑定点 2 原点", size: 1 );
+        private readonly ParsedEnum<BindType> BindType2 = new( "绑定点 2 类型", size: 1 );
+        private readonly ParsedShort BindId2 = new( "绑定点 2", value: -1 );
         private readonly TmbOffsetFloat3 Scale = new( "缩放", defaultValue: new( 1 ) );
         private readonly TmbOffsetAngle3 Rotation = new( "旋转" );
         private readonly TmbOffsetFloat3 Position = new( "位置" );
         private readonly TmbOffsetFloat4 RGBA = new( "RGBA", defaultValue: new( 1 ) );
-        private readonly ParsedEnum<VfxVisibility> Visibility = new( "可见性" );
+        private readonly ParsedFlag<VfxC012Visibility> Visibility = new( "可见性" );
         private readonly ParsedInt Unk3 = new( "未知 3" );
 
         public C012( TmbFile file ) : base( file ) { }
@@ -52,10 +52,12 @@ namespace VfxEditor.TmbFormat.Entries {
             Duration,
             Unk1,
             Path,
-            BindPoint1,
-            BindPoint2,
-            BindPoint3,
-            BindPoint4,
+            BindOrigin1,
+            BindType1,
+            BindId1,
+            BindOrigin2,
+            BindType2,
+            BindId2,
             Scale,
             Rotation,
             Position,

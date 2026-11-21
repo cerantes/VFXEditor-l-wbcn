@@ -6,12 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using VfxEditor.Interop;
-using VfxEditor.Structs;
 
 namespace VfxEditor.Tracker {
     public unsafe class TmbTracker : Tracker {
         private class ActionData {
-            public int ActorId;
+            public ulong ActorId;
             public IntPtr Address;
             public string Path;
             public DateTime StartTime;
@@ -32,7 +31,7 @@ namespace VfxEditor.Tracker {
             if( !Enabled ) return;
 
             try {
-                if( (nint)timeline == IntPtr.Zero ) return;
+                if( ( nint )timeline == IntPtr.Zero ) return;
                 var idx = timeline->GetOwningGameObjectIndex();
                 if( idx < 0 || idx >= Dalamud.Objects.Length ) return;
 
@@ -40,7 +39,7 @@ namespace VfxEditor.Tracker {
                 if( obj == null ) return;
 
                 Actions.TryAdd( ( nint )timeline, new ActionData() {
-                    ActorId = ( int )obj->EntityId,
+                    ActorId = obj->EntityId,
                     Address = new IntPtr( obj ),
                     Path = timeline->ActionTimelineKey.ToString(),
                     StartTime = DateTime.Now
@@ -56,7 +55,7 @@ namespace VfxEditor.Tracker {
             foreach( var item in Actions ) displayItems.Add( item.Value.ToItem() );
         }
 
-        public override void Populate( List<TrackerItemWithPosition> floatingItems, Dictionary<int, HashSet<TrackerItem>> actorToItems, Dictionary<IntPtr, HashSet<TrackerItem>> addressToItems ) {
+        public override void Populate( List<TrackerItemWithPosition> floatingItems, Dictionary<ulong, HashSet<TrackerItem>> actorToItems, Dictionary<IntPtr, HashSet<TrackerItem>> addressToItems ) {
             foreach( var item in Actions ) {
                 if( item.Key == IntPtr.Zero ) continue;
 

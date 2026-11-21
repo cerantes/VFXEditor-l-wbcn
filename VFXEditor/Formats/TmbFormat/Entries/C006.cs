@@ -1,8 +1,10 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C006 : TmbEntry {
         public const string MAGIC = "C006";
         public const string DISPLAY_NAME = "漂浮文本设置";
@@ -14,7 +16,7 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedBool Enabled = new( "启用" );
         private readonly ParsedInt Unk2 = new( "未知 2" );
-        private readonly ParsedInt Unk3 = new( "未知 3" );
+        private readonly ParsedInt Unk3 = new( "未知 3", value: 100 );
 
         public C006( TmbFile file ) : base( file ) { }
 

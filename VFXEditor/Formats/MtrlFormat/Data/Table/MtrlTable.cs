@@ -1,33 +1,27 @@
-using System.Collections.Generic;
 using System.IO;
 using VfxEditor.Formats.MtrlFormat.Data.Color;
 
 namespace VfxEditor.Formats.MtrlFormat.Data.Table {
-    public class MtrlTable : MtrlTableBase {
-        public readonly List<MtrlColorRow> Rows = [];
-        public readonly MtrlColorRowSplitView<MtrlColorRow> RowView;
+    public class MtrlTable : MtrlTableBase<MtrlColorRow> {
+        // 8 vec4s wide, 32 rows tall
+        public const int DimensionLogs = 0x53;
 
-        public MtrlTable( MtrlFile file ) : base( file ) {
-            for( var i = 0; i < 32; i++ ) Rows.Add( new( this ) );
-            RowView = new( Rows );
-        }
+        public float PairBlend = 0f;
 
-        public MtrlTable( MtrlFile file, BinaryReader reader, long dataEnd ) : this( file ) {
-            foreach( var row in Rows ) row.Read( reader );
+        public MtrlTable( MtrlFile file ) : base( file ) { }
 
-            // Read dye rows
-            if( !file.DyeTableEnabled || ( int )( dataEnd - reader.BaseStream.Position ) < ( int )DyeTableSize.Extended ) return;
-            foreach( var row in Rows ) row.ReadDye( reader );
-        }
+        public MtrlTable( MtrlFile file, BinaryReader reader, long dataEnd ) : base( file, reader, dataEnd ) { }
 
-        public override void Write( BinaryWriter writer ) {
-            if( File.ColorTableEnabled ) foreach( var row in Rows ) row.Write( writer );
-            if( File.DyeTableEnabled ) foreach( var row in Rows ) row.WriteDye( writer );
-        }
+        public override bool IsValidDimensionLogs( int logs ) => logs == DimensionLogs;
 
-        public override void Draw() {
-            // TODO: draw dye
-            RowView.Draw();
-        }
+        public override int DefaultDimensionLogs => DimensionLogs;
+
+        protected override DyeTableSize GetDyeTableSize() => DyeTableSize.Extended;
+
+        protected override MtrlColorRow GetNew() => new( File, this );
+
+        protected override int GetRowCount() => 32;
+
+        protected override int GetDyeChannelCount() => 2;
     }
 }

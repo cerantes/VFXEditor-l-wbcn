@@ -1,8 +1,12 @@
 using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat.Base;
+using VfxEditor.Formats.TmbFormat.Utils;
 using VfxEditor.Parsing;
-using VfxEditor.TmbFormat.Utils;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.TmbFormat.Entries {
+namespace VfxEditor.Formats.TmbFormat.Entries {
     public class C199 : TmbEntry {
         public const string MAGIC = "C199";
         public const string DISPLAY_NAME = "Freeze Object";
@@ -14,9 +18,9 @@ namespace VfxEditor.TmbFormat.Entries {
 
         private readonly ParsedBool Enabled = new( "Enabled" );
         private readonly ParsedInt Unk1 = new( "Unknown 1" );
-        private readonly ParsedInt BindPointID = new( "Bind Point ID" );
+        private readonly ParsedInt BindId = new( "Bind Point Id" );
         private readonly ParsedInt Unk2 = new( "Unknown 2" );
-        private readonly ParsedEnum<SummonWeaponObjectControl> ObjectControl = new( "Object Control" );
+        private readonly ParsedEnum<ObjectControl> ObjectControl = new( "Object Control" );
 
         public C199( TmbFile file ) : base( file ) { }
 
@@ -25,7 +29,7 @@ namespace VfxEditor.TmbFormat.Entries {
         protected override List<ParsedBase> GetParsed() => [
             Enabled,
             Unk1,
-            BindPointID,
+            BindId,
             Unk2,
             ObjectControl
         ];

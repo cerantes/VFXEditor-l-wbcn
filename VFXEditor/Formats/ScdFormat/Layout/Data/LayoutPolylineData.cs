@@ -1,6 +1,9 @@
-﻿using VfxEditor.Parsing;
+using VfxEditor.Parsing;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
+using VfxEditor.Parsing.Reserve;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Layout.Data {
     public class LayoutPolylineData : ScdLayoutData {
         public readonly ParsedFloat MaxRange = new( "范围最大值" );
         public readonly ParsedFloat MinRange = new( "范围最小值" );

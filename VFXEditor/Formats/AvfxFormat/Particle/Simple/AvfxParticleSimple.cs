@@ -1,7 +1,14 @@
 using System.Collections.Generic;
 using System.IO;
+using VfxEditor.Formats.AvfxFormat.Base;
+using VfxEditor.Formats.AvfxFormat.Components.Bool;
+using VfxEditor.Formats.AvfxFormat.Components.Float;
+using VfxEditor.Formats.AvfxFormat.Components.Int;
+using VfxEditor.Formats.AvfxFormat.Components.UiComponents;
+using VfxEditor.Formats.AvfxFormat.Model;
+using VfxEditor.Formats.AvfxFormat.Nodes.Select;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat.Particle.Simple {
     public class AvfxParticleSimple : AvfxParticleAttribute {
         public readonly AvfxInt InjectionPositionType = new( "注入位置类型", "SIPT" );
         public readonly AvfxInt InjectionDirectionType = new( "注入方向类型", "SIDT" );
@@ -56,6 +63,8 @@ namespace VfxEditor.AvfxFormat {
         public readonly AvfxFloat LineLengthMin = new( "最短线长", "LLin" );
         public readonly AvfxFloat LineLengthMax = new( "最长线长", "LLax" );
         public readonly AvfxInt CreateIntervalVal = new( "创建间隔", "CrI" );
+        public readonly AvfxFloat CIM = new( "移动时创建间隔", "CIM" );
+        public readonly AvfxFloat CIMR = new( "移动时创建间隔（随机）", "CIMR" );
         public readonly AvfxInt CreateIntervalRandom = new( "随机创建间隔", "CrIR" );
         public readonly AvfxInt CreateIntervalCount = new( "创建间隔数", "CrIC" );
         public readonly AvfxInt CreateIntervalLife = new( "创建间隔生命周期", "CrIL" );
@@ -133,6 +142,8 @@ namespace VfxEditor.AvfxFormat {
                 LineLengthMin,
                 LineLengthMax,
                 CreateIntervalVal,
+                CIM,
+                CIMR,
                 CreateIntervalRandom,
                 CreateIntervalCount,
                 CreateIntervalLife,
@@ -160,6 +171,8 @@ namespace VfxEditor.AvfxFormat {
             Display.Add( LineLengthMin );
             Display.Add( LineLengthMax );
             Display.Add( CreateIntervalVal );
+            Display.Add( CIM );
+            Display.Add( CIMR );
             Display.Add( CreateIntervalRandom );
             Display.Add( CreateIntervalCount );
             Display.Add( CreateIntervalLife );

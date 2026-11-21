@@ -1,13 +1,15 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Bindings.ImGui;
 using System.Collections.Generic;
+using VfxEditor.Formats.TmbFormat;
 using VfxEditor.Select.Tabs.Actions;
 using VfxEditor.Select.Tabs.Common;
 using VfxEditor.Select.Tabs.Emotes;
 using VfxEditor.Select.Tabs.Npc;
+using VfxEditor.Select.Tabs.NpcID;
 using VfxEditor.Spawn;
-using VfxEditor.TmbFormat;
+using VfxEditor.Utils;
 
 namespace VfxEditor.Select.Formats {
     public class TmbSelectDialog : SelectDialog {
@@ -16,7 +18,8 @@ namespace VfxEditor.Select.Formats {
                 new ActionTabTmb( this, "技能" ),
                 new ActionTabTmbNonPlayer( this, "NPC 技能" ),
                 new EmoteTabTmb( this, "情感动作" ),
-                new NpcTabTmb( this, "NPC" ),
+                new NpcTabTmb( this, "Npc" ),
+                new NpcIDTabTmb( this, "NpcID" ),
                 new CommonTabTmb( this, "一般" )
             ] );
         }
@@ -32,6 +35,7 @@ namespace VfxEditor.Select.Formats {
             else {
                 if( ImGui.Button( FontAwesomeIcon.Play.ToIconString() ) ) TmbSpawn.Apply( path );
             }
+            UiUtils.Tooltip( "播放动作" );
         }
     }
 }

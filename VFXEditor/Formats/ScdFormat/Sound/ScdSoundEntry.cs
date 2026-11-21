@@ -1,13 +1,18 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System;
 using System.IO;
+using VfxEditor.Formats.ScdFormat.Entries;
+using VfxEditor.Formats.ScdFormat.Layout;
 using VfxEditor.Formats.ScdFormat.Sound.Data;
 using VfxEditor.Parsing;
-using VfxEditor.ScdFormat.Sound.Data;
+using VfxEditor.Parsing.Enums;
+using VfxEditor.Parsing.Flag;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
 using VfxEditor.Ui.Interfaces;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Sound {
     public enum SoundType {
         Invalid = 0,
         Normal = 1,
@@ -35,6 +40,7 @@ namespace VfxEditor.ScdFormat {
         Reverb = 0x0002,
         Fixed_Volume = 0x0004,
         Fixed_Position = 0x0008,
+        Unknown_1 = 0x0010,
         Music = 0x0020,
         Bypass_PLIIz = 0x0040,
         Use_External_Attr = 0x0080,

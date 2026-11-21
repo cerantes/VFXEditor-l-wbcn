@@ -1,18 +1,25 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using VfxEditor.Data;
 using VfxEditor.FileManager;
+using VfxEditor.Formats.ScdFormat.Attribute;
+using VfxEditor.Formats.ScdFormat.Entries;
+using VfxEditor.Formats.ScdFormat.Headers;
+using VfxEditor.Formats.ScdFormat.Layout;
+using VfxEditor.Formats.ScdFormat.Music;
+using VfxEditor.Formats.ScdFormat.Music.Data;
+using VfxEditor.Formats.ScdFormat.Sound;
+using VfxEditor.Formats.ScdFormat.Track;
 using VfxEditor.Formats.ScdFormat.Utils;
-using VfxEditor.ScdFormat.Music;
-using VfxEditor.ScdFormat.Music.Data;
 using VfxEditor.Ui.Components.SplitViews;
 using VfxEditor.Utils;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat {
     public class ScdFile : FileManagerFile {
         private readonly ScdHeader Header;
 
@@ -204,21 +211,49 @@ namespace VfxEditor.ScdFormat {
         }
 
         public void Replace( ScdAudioEntry entry, ScdAudioEntry newEntry ) {
-            var index = Audio.IndexOf( entry );
-            if( index == -1 || entry == newEntry || entry == null || newEntry == null ) return;
-            Audio.Remove( entry );
-            Audio.Insert( index, newEntry );
-            entry.Player.Dispose();
+            if( entry == null || newEntry == null || entry == newEntry ) return;
+            if( !Audio.Contains( entry ) ) {
+                Dalamud.ErrorNotification( "无法替换音频，原始条目已不存在" );
+                return;
+            }
+            Command.AddAndExecute( new ScdAudioReplaceCommand( this, entry, newEntry ) );
         }
 
-        public override void Dispose() => Audio.ForEach( x => x.Dispose() );
+        public override void Dispose() {
+            base.Dispose();
+            Audio.ForEach( x => x.Dispose() );
+        }
 
         public async void Import( string path, ScdAudioEntry entry ) {
-            await Task.Run( () => {
-                if( !entry.Data.GetImportActions().TryGetValue( Path.GetExtension( path ).Replace(".", ""), out var importFunc ) ) return;
-                var newEntry = importFunc( path, entry );
-                if( newEntry != null ) Replace( entry, newEntry );
-            } );
+            try {
+                var newEntry = await Task.Run( () => {
+                    if( !entry.Data.GetImportActions().TryGetValue( Path.GetExtension( path ).Replace( ".", "" ), out var importFunc ) ) return null;
+                    var result = importFunc( path, entry );
+                    if( result != null ) SetDefaultLoop( entry, result );
+                    return result;
+                } );
+                // Audio is read by the UI every frame, so only modify it on the main thread
+                if( newEntry != null ) await Dalamud.Framework.RunOnFrameworkThread( () => Replace( entry, newEntry ) );
+            }
+            catch( Exception e ) {
+                Dalamud.Error( e, $"导入音频出错：{path}" );
+                Dalamud.ErrorNotification( "导入音频出错" );
+            }
+        }
+
+        private static void SetDefaultLoop( ScdAudioEntry oldEntry, ScdAudioEntry newEntry ) {
+            if( oldEntry.LoopStart == 0 && oldEntry.LoopEnd == 0 ) return;
+            if( newEntry.LoopStart != 0 || newEntry.LoopEnd != 0 ) return;
+
+            try {
+                using var stream = newEntry.Data.GetStream();
+                var duration = ( float )stream.TotalTime.TotalSeconds;
+                if( duration <= 0 ) return;
+                newEntry.LoopTime = new( duration * 0.1f, duration * 0.9f );
+            }
+            catch( Exception e ) {
+                Dalamud.Error( e, "无法设置默认循环点" );
+            }
         }
 
         private static int PopulateOffsetPlaceholders<T>( BinaryWriter writer, List<T> items, bool defaultZero ) {

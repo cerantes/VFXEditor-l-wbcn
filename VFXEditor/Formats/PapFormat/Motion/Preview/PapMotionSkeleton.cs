@@ -8,12 +8,11 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using VfxEditor.Data;
+using VfxEditor.DirectX;
 using VfxEditor.Interop.Havok;
 using VfxEditor.Interop.Havok.SkeletonBuilder;
-using VfxEditor.PapFormat;
-using VfxEditor.PapFormat.Motion;
 using VfxEditor.Utils;
-using VfxEditor.DirectX;
 
 namespace VfxEditor.Formats.PapFormat.Motion.Preview {
     public unsafe class PapMotionSkeleton : PapMotionPreview {
@@ -25,6 +24,9 @@ namespace VfxEditor.Formats.PapFormat.Motion.Preview {
         private bool Looping = true;
         private bool Playing = false;
         private DateTime LastTime = DateTime.Now;
+        private double PlayTime = 0; // Seconds accumulated towards the next frame
+        private bool MismatchWarning = false;
+        private List<string> UnanimatedBoneNames = null;
 
         public PapMotionSkeleton( PapFile file, PapMotion motion ) : base( motion ) {
             File = file;
@@ -44,11 +46,16 @@ namespace VfxEditor.Formats.PapFormat.Motion.Preview {
             // ==== Frame controls ====
 
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) ) {
-                if( ImGui.Button( Playing ? FontAwesomeIcon.Stop.ToIconString() : FontAwesomeIcon.Play.ToIconString() ) ) Playing = !Playing;
+                if( ImGui.Button( Playing ? FontAwesomeIcon.Stop.ToIconString() : FontAwesomeIcon.Play.ToIconString() ) ) {
+                    Playing = !Playing;
+                    LastTime = DateTime.Now;
+                    PlayTime = 0;
+                }
 
                 ImGui.SameLine();
                 using var dimmed = ImRaii.PushStyle( ImGuiStyleVar.Alpha, 0.5f, !Looping );
                 if( ImGui.Button( FontAwesomeIcon.Sync.ToIconString() ) ) Looping = !Looping;
+                UiUtils.Tooltip( Looping ? "循环中（点击禁用）" : "未循环（点击启用）" );
             }
 
             var lastFrame = Frame;
@@ -64,20 +71,30 @@ namespace VfxEditor.Formats.PapFormat.Motion.Preview {
 
             if( Data == null ) return;
 
+            if( MismatchWarning ) {
+                using var _ = ImRaii.PushColor( ImGuiCol.Text, UiUtils.RED_COLOR );
+                ImGui.TextWrapped( "此动画引用的骨骼数量超过已加载骨骼。采样会导致内存损坏并使游戏崩溃。请通过上方选择器加载对应的骨骼文件（.sklb）。" );
+                return;
+            }
+
             if( Playing ) {
                 var time = DateTime.Now;
-                var diff = ( time - LastTime ).TotalMilliseconds;
-                if( diff > 33.3f ) {
-                    LastTime = time;
+                PlayTime += ( time - LastTime ).TotalSeconds;
+                LastTime = time;
 
-                    Frame++;
-                    if( Frame >= Motion.TotalFrames ) {
+                var advance = ( int )( PlayTime * 30.0 );
+                if( advance > 0 ) {
+                    PlayTime -= advance / 30.0;
+                    Frame += advance;
+
+                    var total = Motion.TotalFrames;
+                    if( Frame >= total ) {
                         if( !Looping ) { // Stop
-                            Frame = Motion.TotalFrames - 1;
+                            Frame = total - 1;
                             Playing = false;
                         }
                         else { // Loop back around
-                            Frame = 0;
+                            Frame %= total;
                         }
                     }
                 }
@@ -93,12 +110,22 @@ namespace VfxEditor.Formats.PapFormat.Motion.Preview {
             ImGui.SameLine();
             UiUtils.WikiButton( "https://github.com/0ceal0t/Dalamud-VFXEditor/wiki/Using-Blender-to-Edit-Skeletons-and-Animations" );
 
+            DrawUnanimatedBonesIndicator();
+
             Plugin.DirectXManager.BoneRenderer.DrawTexture( RenderId, File.BoneInstance, UpdateRender, Plugin.Configuration.DrawDirectXSkeleton );
         }
 
         // ======== UPDATING ===========
 
         private void UpdateRender() {
+            if( Motion.HasMismatchedSkeleton() ) {
+                MismatchWarning = true;
+                Data = [];
+                Plugin.DirectXManager.BoneRenderer.SetEmpty( RenderId, File.BoneInstance );
+                return;
+            }
+            MismatchWarning = false;
+
             Motion.AnimationControl->LocalTime = Frame * ( 1 / 30f );
 
             var transforms = ( hkQsTransformf* )Marshal.AllocHGlobal( Motion.Skeleton->Bones.Length * sizeof( hkQsTransformf ) );
@@ -154,6 +181,38 @@ namespace VfxEditor.Formats.PapFormat.Motion.Preview {
             }
             else {
                 Plugin.DirectXManager.BoneRenderer.SetSkeleton( RenderId, File.BoneInstance, new ConnectedSkeletonMeshBuilder( Data, -1, Motion.GetUnanimatedBones() ).Build() );
+            }
+
+            // Cache unanimated bone names for the UI tooltip (doesn't change per frame)
+            if( UnanimatedBoneNames == null ) {
+                UnanimatedBoneNames = [];
+                var unanimated = Motion.GetUnanimatedBones();
+                for( var i = 0; i < Motion.Skeleton->Bones.Length; i++ ) {
+                    if( unanimated.Contains( i ) ) {
+                        UnanimatedBoneNames.Add( Motion.Skeleton->Bones[i].Name.String ?? $"bone_{i}" );
+                    }
+                }
+            }
+        }
+
+        private void DrawUnanimatedBonesIndicator() {
+            if( UnanimatedBoneNames == null || UnanimatedBoneNames.Count == 0 ) return;
+
+            ImGui.SameLine();
+            ImGui.SetCursorPosX( ImGui.GetCursorPosX() + 5 );
+            using var color = ImRaii.PushColor( ImGuiCol.Text, new Vector4( 0.85f, 0.5f, 0.5f, 1f ) );
+            ImGui.Text( $"{UnanimatedBoneNames.Count} 根未驱动" );
+
+            if( ImGui.IsItemHovered() ) {
+                ImGui.BeginTooltip();
+                ImGui.PushTextWrapPos( ImGui.GetFontSize() * 35.0f );
+                ImGui.TextUnformatted( "骨骼中未被此动画驱动的部分（红色显示）：" );
+                ImGui.Spacing();
+                foreach( var name in UnanimatedBoneNames ) {
+                    ImGui.TextUnformatted( name );
+                }
+                ImGui.PopTextWrapPos();
+                ImGui.EndTooltip();
             }
         }
     }

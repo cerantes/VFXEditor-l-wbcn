@@ -3,6 +3,8 @@ using Dalamud.Interface.Utility.Raii;
 using System.Collections.Generic;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.String;
 using VfxEditor.Ui.Interfaces;
 using VfxEditor.Utils;
 
@@ -34,13 +36,22 @@ namespace VfxEditor.Formats.AtchFormat.Entry {
             States.ForEach( x => x.Write( writer, stringStartPos, stringWriter, stringPos ) );
         }
 
-        public void Draw() {
+        public void Draw() => Draw( null );
+
+        public void Draw( List<AtchEntryState> validStates ) {
+            using( ImRaii.Disabled() ) {
+                ImGui.TextWrapped( "Penumbra 只识别元数据更改，因此只有绿色标记的状态修改会被 Penumbra 识别" );
+            }
+
             Name.Draw( 3, Name.Name, 0, ImGuiInputTextFlags.None );
             Accessory.Draw();
 
             for( var idx = 0; idx < States.Count; idx++ ) {
                 var state = States[idx];
+                using var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.PARSED_GREEN, validStates != null && validStates.Contains( state ) );
                 if( ImGui.CollapsingHeader( $"状态 {idx} ({state.Bone.Value})##{idx}" ) ) {
+                    color.Pop();
+
                     using var _ = ImRaii.PushId( idx );
                     using var indent = ImRaii.PushIndent();
 

@@ -1,6 +1,8 @@
-﻿using VfxEditor.Parsing;
+using VfxEditor.Parsing;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Reserve;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Layout.Data {
     public class LayoutAmbientData : ScdLayoutData {
         public readonly ParsedFloat Volume = new( "音量" );
         public readonly ParsedFloat Pitch = new( "音高" );

@@ -1,7 +1,9 @@
 ﻿using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Track.Data {
     public class TrackParamData : ScdTrackData {
         public readonly ParsedFloat Value = new( "值" );
         public readonly ParsedInt Time = new( "时间" );

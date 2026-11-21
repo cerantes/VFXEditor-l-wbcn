@@ -8,7 +8,7 @@ using VfxEditor.Library.Components;
 using VfxEditor.Library.Texture;
 using VfxEditor.Utils;
 
-namespace VfxEditor.Library.Node {
+namespace VfxEditor.Library.Texture {
     public class TextureRoot : LibraryRoot {
         private string AddPath = "";
 
@@ -32,6 +32,7 @@ namespace VfxEditor.Library.Node {
                         library.ExportTextures( res );
                     } );
                 }
+                UiUtils.Tooltip( "导出材质列表" );
 
                 ImGui.SameLine();
                 if( ImGui.Button( FontAwesomeIcon.Upload.ToIconString() ) ) {
@@ -40,6 +41,7 @@ namespace VfxEditor.Library.Node {
                         library.ImportTextures( res );
                     } );
                 }
+                UiUtils.Tooltip( "导入材质列表" );
             }
 
             ImGui.Separator();

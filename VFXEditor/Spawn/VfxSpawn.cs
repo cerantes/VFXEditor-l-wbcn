@@ -1,9 +1,11 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System;
 using System.Collections.Generic;
-using VfxEditor.Structs.Vfx;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
+using System.Linq;
+using VfxEditor.Data;
+using VfxEditor.Interop.Structs.Vfx;
+using VfxEditor.Utils;
 
 namespace VfxEditor.Spawn {
     public enum SpawnType {
@@ -35,40 +37,82 @@ namespace VfxEditor.Spawn {
         }
     }
 
-    public static unsafe class VfxSpawn {
-        public static readonly Dictionary<BaseVfx, VfxSpawnItem> Vfxs = [];
+    public static class VfxSpawn {
+        public static readonly Dictionary<nint, (BaseVfx Vfx, VfxSpawnItem Item)> Vfxs = [];
         public static readonly List<VfxLoopItem> ToLoop = [];
 
-        public static bool IsActive => Vfxs.Count > 0;
+        // Also active while a looped VFX is waiting to respawn, so that it can still be de-spawned
+        public static bool IsActive => Vfxs.Count > 0 || ToLoop.Count > 0;
 
         public static void DrawPopup( string path, bool loop ) {
             using var popup = ImRaii.Popup( "SpawnPopup" );
             if( !popup ) return;
 
-            if( ImGui.Selectable( "自身" ) ) OnSelf( path, loop );
-            if( ImGui.Selectable( "地面" ) ) OnGround( path, loop );
-            if( ImGui.Selectable( "目标" ) ) OnTarget( path, loop );
+            using( ImRaii.Disabled( !IsActive ) ) {
+                if( ImGui.Selectable( "取消生成" ) ) Clear();
+            }
+            using( ImRaii.Disabled( IsActive ) ) {
+                if( ImGui.Selectable( "自身" ) ) OnSelf( path, loop );
+                if( ImGui.Selectable( "地面" ) ) OnGround( path, loop );
+                if( ImGui.Selectable( "目标" ) ) OnTarget( path, loop );
+            }
+
+            ImGui.Separator();
+
+            if( ImGui.Checkbox( "循环", ref Plugin.Configuration.VfxSpawnLoop ) ) Plugin.Configuration.Save();
+            ImGui.SetNextItemWidth( 150 );
+            if( ImGui.InputFloat( "延迟", ref Plugin.Configuration.VfxSpawnDelay ) ) Plugin.Configuration.Save();
+        }
+
+        // Spawning a VFX whose file the game cannot find crashes the game, so check first
+        public static bool CanSpawn( string path, out string error ) {
+            if( !GamePathUtils.IsWellFormed( path, "avfx", out error ) ) return false;
+            if( GamePathUtils.CanLoad( path ) ) return true;
+
+            error = Plugin.PenumbraIpc?.PenumbraEnabled != true ? "Penumbra 不可用，且该路径不存在于游戏文件中" :
+                Plugin.PenumbraIpc.ModsEnabled != true ? "Penumbra 模组已禁用，且该路径不存在于游戏文件中" :
+                "该路径不存在于游戏文件中，也未被替换";
+            return false;
+        }
+
+        private static bool CheckSpawn( string path ) {
+            if( CanSpawn( path, out var error ) ) return true;
+            Dalamud.Error( $"无法生成 {path}：{error}" );
+            Dalamud.ErrorNotification( $"无法生成 {path}：{error}" );
+            return false;
         }
 
         public static void OnGround( string path, bool canLoop ) {
+            if( !CheckSpawn( path ) ) return;
             var playerObject = Plugin.PlayerObject;
             if( playerObject == null ) return;
 
-            Vfxs.Add( new StaticVfx( path, playerObject.Position, playerObject.Rotation ), new( path, SpawnType.Ground, canLoop ) );
+            Add( new StaticVfx( path, playerObject.Position, playerObject.Rotation ), new( path, SpawnType.Ground, canLoop ) );
         }
 
         public static void OnSelf( string path, bool canLoop ) {
+            if( !CheckSpawn( path ) ) return;
             var playerObject = Plugin.PlayerObject;
             if( playerObject == null ) return;
 
-            Vfxs.Add( new ActorVfx( playerObject, playerObject, path ), new( path, SpawnType.Self, canLoop ) );
+            Add( new ActorVfx( playerObject, playerObject, path ), new( path, SpawnType.Self, canLoop ) );
         }
 
         public static void OnTarget( string path, bool canLoop ) {
+            if( !CheckSpawn( path ) ) return;
             var targetObject = Plugin.TargetObject;
             if( targetObject == null ) return;
 
-            Vfxs.Add( new ActorVfx( targetObject, targetObject, path ), new( path, SpawnType.Target, canLoop ) );
+            Add( new ActorVfx( targetObject, targetObject, path ), new( path, SpawnType.Target, canLoop ) );
+        }
+
+        private static void Add( BaseVfx vfx, VfxSpawnItem item ) {
+            var address = vfx.GetAddress();
+            if( address == IntPtr.Zero ) {
+                Dalamud.Error( $"无法生成 {item.Path}" );
+                return;
+            }
+            Vfxs[address] = (vfx, item);
         }
 
         public static void Tick() {
@@ -86,23 +130,23 @@ namespace VfxEditor.Spawn {
         }
 
         public static void Clear() {
-            foreach( var vfx in Vfxs ) vfx.Key?.Remove(); // this also calls InteropRemoved()
+            var toRemove = Vfxs.Values.Select( x => x.Vfx ).ToList();
             Vfxs.Clear();
             ToLoop.Clear();
+
+            foreach( var vfx in toRemove ) {
+                try {
+                    vfx.Remove();
+                }
+                catch( Exception e ) {
+                    Dalamud.Error( e, $"移除 {vfx.Path} 出错" );
+                }
+            }
         }
 
-        public static void InteropRemoved( VfxObject* data ) {
-            if( !GetVfx( (nint)data, out var vfx ) ) return;
-            var item = Vfxs[vfx];
-
-            if( Plugin.Configuration.VfxSpawnLoop && item.CanLoop ) ToLoop.Add( new( item, DateTime.Now ) );
-            Vfxs.Remove( vfx );
-        }
-
-        public static bool GetVfx( IntPtr data, out BaseVfx vfx ) {
-            vfx = null;
-            if( data == IntPtr.Zero || Vfxs.Count == 0 ) return false;
-            return Vfxs.Keys.FindFirst( x => data == ( IntPtr )x.Vfx, out vfx );
+        public static void InteropRemoved( nint data ) {
+            if( data == IntPtr.Zero || !Vfxs.Remove( data, out var entry ) ) return;
+            if( Plugin.Configuration.VfxSpawnLoop && entry.Item.CanLoop ) ToLoop.Add( new( entry.Item, DateTime.Now ) );
         }
 
         public static void Dispose() => Clear();

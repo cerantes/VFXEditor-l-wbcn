@@ -1,7 +1,9 @@
-using VFXEditor.Formats.AvfxFormat.Curve;
-using static VfxEditor.AvfxFormat.Enums;
+using VfxEditor.Formats.AvfxFormat.Base;
+using VfxEditor.Formats.AvfxFormat.Components.Enums;
+using VfxEditor.Formats.AvfxFormat.Curve;
+using static VfxEditor.Formats.AvfxFormat.Base.Enums;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat.Emitter.Data {
     public class AvfxEmitterDataCone : AvfxDataWithParameters {
         public readonly AvfxEnum<RotationOrder> RotationOrderType = new( "旋转顺序", "ROT" );
         public readonly AvfxCurve1Axis AX = new( "X 轴角度", "AnX", CurveType.Angle );

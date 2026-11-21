@@ -17,6 +17,7 @@ namespace VfxEditor.Select
         public static string CommonShcdPath => Path.Combine( Plugin.RootLocation, "Files", "common_shcd" );
         public static string CommonRacialPath => Path.Combine( Plugin.RootLocation, "Files", "common_racial" );
         public static string CommonPapPath => Path.Combine( Plugin.RootLocation, "Files", "common_pap" );
+        public static string OrchestrionPath => Path.Combine( Plugin.RootLocation, "Files", "orchestrion.csv" );
 
         [GeneratedRegex( "\\u0000([a-zA-Z0-9\\/_]*?)\\.avfx", RegexOptions.Compiled )]
         private static partial Regex AvfxRegexPattern();
@@ -72,6 +73,7 @@ namespace VfxEditor.Select
             { "Blue Mage", "bt_rod_emp" },
             { "Pictomancer", "bt_brs_plt" },
             { "Viper", "bt_bld_bld" },
+            { "野兽使", "bt_axe_sld" },
         };
 
         public static readonly Dictionary<string, string> JobMovementOverride = new() {

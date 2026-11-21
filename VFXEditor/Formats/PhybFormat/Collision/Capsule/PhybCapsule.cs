@@ -5,9 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Float;
 using VfxEditor.Parsing.String;
 
-namespace VfxEditor.PhybFormat.Collision.Capsule {
+namespace VfxEditor.Formats.PhybFormat.Collision.Capsule {
     public class PhybCapsule : PhybData, IPhysicsObject {
         public readonly ParsedPaddedString Name = new( "名称", "replace_me", 32, 0xFE );
         public readonly ParsedPaddedString StartBone = new( "起始骨骼", 32, 0xFE );
@@ -39,7 +40,9 @@ namespace VfxEditor.PhybFormat.Collision.Capsule {
             var startPos = Vector3Helper.TransformCoordinate( startOffset, startBone.BindPose );
             var endPos = Vector3Helper.TransformCoordinate( endOffset, endBone.BindPose );
 
-            meshes.Collision.AddCylinder( startPos, endPos, Radius.Value * 2f, 10 );
+            if( ( startPos - endPos ).Length() > 0.0001f ) {
+                meshes.Collision.AddCylinder( startPos, endPos, Radius.Value * 2f, 10 );
+            }
             meshes.Collision.AddSphere( startPos, Radius.Value, 10, 10 );
             meshes.Collision.AddSphere( endPos, Radius.Value, 10, 10 );
         }

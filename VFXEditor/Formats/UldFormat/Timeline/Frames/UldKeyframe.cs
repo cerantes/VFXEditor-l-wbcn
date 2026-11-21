@@ -2,10 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Bool;
+using VfxEditor.Parsing.Float;
 using VfxEditor.Parsing.Int;
+using VfxEditor.Parsing.Reserve;
 using VfxEditor.Ui.Interfaces;
 
-namespace VfxEditor.UldFormat.Timeline.Frames {
+namespace VfxEditor.Formats.UldFormat.Timeline.Frames {
     public class UldKeyframe : IUiItem {
         public readonly ParsedUInt Time = new( "时间" );
         public readonly ParsedInt Interpolation = new( "插值", size: 1 );

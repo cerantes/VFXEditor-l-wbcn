@@ -1,6 +1,10 @@
-﻿using VfxEditor.Parsing;
+using VfxEditor.Parsing;
+using VfxEditor.Parsing.Flag;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
+using VfxEditor.Parsing.Reserve;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Layout.Data {
     public class LayoutPolygonObstructionData : ScdLayoutData {
         public readonly ParsedFloat ObstacleFac = new( "障碍强度系数" );
         public readonly ParsedFloat HiCutFac = new( "高频截止强度系数" );

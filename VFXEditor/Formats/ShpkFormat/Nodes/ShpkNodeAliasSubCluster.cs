@@ -2,6 +2,7 @@ using Dalamud.Bindings.ImGui;
 using System.Collections.Generic;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Int;
 using VfxEditor.Ui.Components.SplitViews;
 using VfxEditor.Ui.Interfaces;
 using VfxEditor.Utils;
@@ -34,11 +35,13 @@ namespace VfxEditor.Formats.ShpkFormat.Nodes {
 
         public void Write( BinaryWriter writer ) {
             OwnIndex.Write( writer );
-            writer.Write( (ushort) Aliases.Count );
+            writer.Write( ( ushort )Aliases.Count );
 
             Aliases.ForEach( x => x.Write( writer ) );
-            for( var i = 0; i < ExtraData.Count; i++ ) {
-                writer.Write( ExtraData[i] );
+
+            var padding = DATA_CAPACITY - ( Aliases.Count * 2 );
+            for( var i = 0; i < padding; i++ ) {
+                writer.Write( i < ExtraData.Count ? ExtraData[i] : 0u );
             }
         }
 

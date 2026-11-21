@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
 
-namespace VfxEditor.ScdFormat.Music.Data {
+namespace VfxEditor.Formats.ScdFormat.Music.Data {
     public abstract class ScdAudioData {
         public readonly ScdAudioEntry Entry;
 
@@ -14,9 +14,17 @@ namespace VfxEditor.ScdFormat.Music.Data {
 
         public abstract WaveStream GetStream();
 
-        public abstract int SamplesToBytes( int samples );
+        // "原始" is whatever unit the SCD entry's own LoopStart/LoopEnd fields are stored in -
+        // this differs per codec (HCA: block index, Vorbis: byte offset, ADPCM: sample index).
+        // Samples are the unit used by OGG loop tags. Both are exact/precise; time (seconds)
+        // is a derived display unit.
+        public abstract int SamplesToRaw( int samples );
 
-        public abstract int TimeToBytes( float time );
+        public abstract int RawToSamples( int raw );
+
+        public abstract int TimeToRaw( float time );
+
+        public abstract float RawToTime( int raw );
 
         public abstract Vector2 GetLoopTime();
 

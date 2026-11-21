@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using VfxEditor.Parsing;
+using VfxEditor.Parsing.Float;
+using VfxEditor.Parsing.Int;
 
-namespace VfxEditor.ScdFormat {
+namespace VfxEditor.Formats.ScdFormat.Track.Data {
     public class TrackUnknown64Data : ScdTrackData {
         public readonly ParsedByte Version = new( "版本" );
         public readonly ParsedShort Unk1 = new( "未知 1" );

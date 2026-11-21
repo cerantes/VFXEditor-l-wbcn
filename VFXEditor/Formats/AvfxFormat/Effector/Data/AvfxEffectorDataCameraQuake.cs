@@ -1,6 +1,7 @@
-using VFXEditor.Formats.AvfxFormat.Curve;
+using VfxEditor.Formats.AvfxFormat.Base;
+using VfxEditor.Formats.AvfxFormat.Curve;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat.Effector.Data {
     public class AvfxEffectorDataCameraQuake : AvfxData {
         public readonly AvfxCurve1Axis Attenuation = new( "衰减", "Att" );
         public readonly AvfxCurve1Axis AttenuationRandom = new( "随机衰减", "AttR" );

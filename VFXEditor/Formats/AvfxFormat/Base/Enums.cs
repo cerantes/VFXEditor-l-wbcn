@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace VfxEditor.AvfxFormat {
+namespace VfxEditor.Formats.AvfxFormat.Base {
     public class Enums {
         [Flags]
         public enum DrawLayer {
@@ -129,13 +129,11 @@ namespace VfxEditor.AvfxFormat {
             Camera = 0,
             Caster = 1
         }
-        public enum DepthOffsetType
-        {
+        public enum DepthOffsetType {
             Legacy = 0,
             FixedIntervalNDC = 1
         }
-        public enum RandomType
-        {
+        public enum RandomType {
             FirstPlusMinus = 0,
             FirstPlus = 1,
             FirstMinus = 2,
@@ -315,12 +313,20 @@ namespace VfxEditor.AvfxFormat {
             Z_Y = 9
         }
 
+        public enum DissolveShape {
+            Auto = 0,
+            Rectangular_Prism = 1,
+            Sphere = 2,
+            Cylinder = 3,
+        }
+
         [Flags]
         public enum AuraFilter {
             Character = 0x01,
             Weapon = 0x02,
             Off_Hand = 0x04,
-            Summon = 0x08
+            Summon = 0x08,
+            BG_Unknown = 0x10
         }
     }
 }

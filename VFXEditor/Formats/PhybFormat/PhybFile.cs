@@ -1,25 +1,26 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility.Raii;
-using HelixToolkit.SharpDX.Core;
+using HelixToolkit.Geometry;
 using HelixToolkit.SharpDX.Animations;
+using HelixToolkit.SharpDX.Core;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
+using VfxEditor.Data;
+using VfxEditor.DirectX.Bone;
 using VfxEditor.FileManager;
+using VfxEditor.Formats.PhybFormat.Collision;
 using VfxEditor.Formats.PhybFormat.Extended;
+using VfxEditor.Formats.PhybFormat.Simulator;
+using VfxEditor.Formats.PhybFormat.Skeleton;
+using VfxEditor.Formats.PhybFormat.Utils;
 using VfxEditor.Interop.Havok.Ui;
 using VfxEditor.Parsing;
 using VfxEditor.Parsing.Int;
-using VfxEditor.PhybFormat.Collision;
-using VfxEditor.PhybFormat.Simulator;
-using VfxEditor.PhybFormat.Skeleton;
-using VfxEditor.PhybFormat.Utils;
 using VfxEditor.Utils;
 using VfxEditor.Utils.PackStruct;
-using HelixToolkit.Geometry;
-using VfxEditor.DirectX.Bone;
 
-namespace VfxEditor.PhybFormat {
+namespace VfxEditor.Formats.PhybFormat {
     public class MeshBuilders {
         public MeshBuilder Collision;
         public MeshBuilder Simulation;
@@ -41,6 +42,7 @@ namespace VfxEditor.PhybFormat {
 
         public const uint ExtendedType = 'E' | ( ( uint )'P' << 8 ) | ( ( uint )'H' << 16 ) | ( ( uint )'B' << 24 );
         public readonly PhybExtended Extended;
+        private readonly long EphbPos; // absolute offset of the extended pack in the source file, used to reproduce any alignment gap before it on write
 
         public PhybFile( BinaryReader reader, string sourcePath, bool verify ) : base() {
             Version.Read( reader );
@@ -65,6 +67,7 @@ namespace VfxEditor.PhybFormat {
                 diff = extendedData.Data.Length - Extended.GetEphbData().Length;
                 Dalamud.Log( $"Flatbuffer diff is: {diff}" );
                 ephbPos = packReader.StartPos;
+                EphbPos = packReader.StartPos;
             }
 
             reader.BaseStream.Position = simOffset;
@@ -116,7 +119,8 @@ namespace VfxEditor.PhybFormat {
 
             if( Extended != null ) {
                 writer.BaseStream.Position = writer.BaseStream.Length;
-                FileUtils.PadTo( writer, 16 );
+                var pad = EphbPos - writer.BaseStream.Position;
+                if( pad > 0 ) FileUtils.Pad( writer, pad );
                 Extended.Write( writer );
             }
         }

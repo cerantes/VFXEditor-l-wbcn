@@ -1,8 +1,9 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
-using Dalamud.Bindings.ImGui;
 using System.IO;
 using System.Numerics;
+using VfxEditor.Data;
 using VfxEditor.Formats.MtrlFormat.Data.Dye;
 using VfxEditor.Formats.MtrlFormat.Data.Table;
 using VfxEditor.Formats.MtrlFormat.Stm;
@@ -10,8 +11,6 @@ using VfxEditor.Parsing.HalfFloat;
 
 namespace VfxEditor.Formats.MtrlFormat.Data.Color {
     public class MtrlColorRowLegacy : MtrlColorRowBase {
-        public readonly MtrlFile File;
-
         public readonly ParsedHalf3Color Diffuse = new( "Diffuse", Vector3.One );
         public readonly ParsedHalf SpecularStrength = new( "Specular Strength", 1f );
         public readonly ParsedHalf3Color Specular = new( "Specular", Vector3.One );
@@ -24,12 +23,7 @@ namespace VfxEditor.Formats.MtrlFormat.Data.Color {
 
         public readonly MtrlDyeRowLegacy DyeRow = new();
 
-        public MtrlStain Stain { get; private set; }
-        public StmDyeData StainTemplate { get; private set; }
-
-        public MtrlColorRowLegacy( MtrlFile file, MtrlTableBase table ) : base( table ) {
-            File = file;
-        }
+        public MtrlColorRowLegacy( MtrlFile file, MtrlTableBase table ) : base( file, table ) { }
 
         public override void Read( BinaryReader reader ) {
             Diffuse.Read( reader );
@@ -93,41 +87,37 @@ namespace VfxEditor.Formats.MtrlFormat.Data.Color {
 
         // ===== PREVIEW =========
 
-        protected override void DrawPreview( bool edited ) {
-            if( Stain != null ) {
-                using var child = ImRaii.Child( "Child", new( -1, ImGui.GetFrameHeight() + ImGui.GetStyle().WindowPadding.Y * 2 ), true );
-                using var style = ImRaii.PushStyle( ImGuiStyleVar.ItemSpacing, ImGui.GetStyle().ItemInnerSpacing );
-                if( StainTemplate == null ) ImGui.TextDisabled( "[无染色数据]" );
-                else StainTemplate.Draw();
-            }
+        protected override int DyeChannel => 0;
 
-            if( edited ) UpdateRender();
+        public override StmDyeDataBase GetStainTemplate() => Stain == null ? null : Plugin.MtrlManager.StmFileLegacy.GetDye( DyeRow.Template.Value, ( int )Stain.Id );
 
-            Plugin.DirectXManager.MaterialRenderer.DrawTexture( RenderId, File.Instance, UpdateRender, Plugin.Configuration.DrawDirectXMaterial );
+        public override MtrlResolvedRow Resolve( bool applyDye ) {
+            var dye = applyDye ? StainTemplate as StmDyeDataLegacy : null;
+            var flags = DyeRow.Flags.Value;
+            bool Dyed( DyeRowFlags_Legacy flag ) => dye != null && flags.HasFlag( flag );
+
+            var specular = Dyed( DyeRowFlags_Legacy.Specular ) ? dye.Specular : Specular.Value;
+            var specularStrength = Dyed( DyeRowFlags_Legacy.Specular_Strength ) ? dye.Power : SpecularStrength.Value;
+            var gloss = Dyed( DyeRowFlags_Legacy.Gloss ) ? dye.Gloss : GlossStrength.Value;
+
+            return new() {
+                Diffuse = Dyed( DyeRowFlags_Legacy.Diffuse ) ? dye.Diffuse : Diffuse.Value,
+                Specular = specular * specularStrength,
+                Emissive = Dyed( DyeRowFlags_Legacy.Emissive ) ? dye.Emissive : Emissive.Value,
+                Exposure = 1f,
+                Roughness = MtrlResolvedRow.RoughnessFromGloss( gloss ),
+                TileIndex = TileMaterial.Value,
+                TileAlpha = 1f,
+                TileTransform = new( TileRepeatX.Value, TileSkew.Value.X, TileSkew.Value.Y, TileRepeatY.Value ),
+                Dyed = dye != null && flags != 0,
+            };
         }
 
-        public StmDyeData GetStainTemplate() => Stain == null ? null : Plugin.MtrlManager.StmFile.GetDye( DyeRow.Template.Value, ( int )Stain.Id );
-
-        public void UpdateRender() {
+        public override void UpdateRender() {
             StainTemplate = GetStainTemplate();
-            Plugin.DirectXManager.MaterialRenderer.SetColorRow( RenderId, File.Instance, this );
+            Plugin.DirectXManager.MaterialRenderer.SetColorRow( RenderId, File.Instance, Resolve( true ), true );
         }
 
-        public void SetPreviewStain( MtrlStain stain ) {
-            Stain = stain;
-            StainTemplate = GetStainTemplate();
-        }
-
-        public override bool DrawLeftItem( int idx, bool selected ) {
-            var ret = base.DrawLeftItem( idx, selected );
-
-            if( StainTemplate != null ) {
-                ImGui.SameLine();
-                using var font = ImRaii.PushFont( UiBuilder.IconFont );
-                ImGui.TextDisabled( FontAwesomeIcon.PaintBrush.ToIconString() );
-            }
-
-            return ret;
-        }
+        protected override void DrawRender() => Plugin.DirectXManager.MaterialRenderer.DrawTexture( RenderId, File.Instance, UpdateRender, Plugin.Configuration.DrawDirectXMaterial );
     }
 }

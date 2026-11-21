@@ -1,7 +1,8 @@
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility.Raii;
 using System.Collections.Generic;
 using System.Linq;
+using VfxEditor.Select.Base;
 
 namespace VfxEditor.Select.Tabs.Character {
     public class SelectedMtrl {
@@ -21,7 +22,7 @@ namespace VfxEditor.Select.Tabs.Character {
 
         public override void LoadSelection( CharacterRow item, out SelectedMtrl loaded ) {
             loaded = new() {
-                Faces = GetPart( "面部", CharacterPart.Face, item, item.Data.FaceOptions, ["fac_a", "etc_a", "iri_a"], item.Data.FaceToIcon ),
+                Faces = GetPart( "面部", CharacterPart.Face, item, item.Data.FaceOptions, ["fac_a", "fac_b", "fac_c", "etc_a", "etc_b", "etc_c", "iri_a"], item.Data.FaceToIcon ),
                 Bodies = GetPart( "身体", CharacterPart.Body, item, item.Data.BodyOptions, ["a"] ),
                 Hairs = GetPart( "头发", CharacterPart.Hair, item, item.Data.HairOptions, ["hir_a", "acc_b"], item.Data.HairToIcon ),
                 Ears = GetPart( "耳朵", CharacterPart.Ear, item, item.Data.EarOptions, ["fac_a", "a"], item.Data.FeatureToIcon ),

@@ -15,18 +15,15 @@ namespace VfxEditor.Select.Tabs.Zone {
         // ===== LOADING =====
 
         public override void LoadSelection( ZoneRow item, out SelectedScd loaded ) {
-            if( item.BgmId <= 50000 ) {
+            if( BgmQuestTab.IsBgmSwitch( item.BgmId ) ) {
                 loaded = new() {
-                    Situation = BgmQuestTab.GetBgmSituation( item.BgmId )
+                    Quests = BgmQuestTab.GetBgmSwitch( item.BgmId )
                 };
             }
             else {
-                loaded = new(); // TODO
-                //foreach( var bgmSwitch in Dalamud.DataManager.GetExcelSheet<BGMSwitch>().Where( x => x.RowId == item.BgmId ) ) {
-                //    var questName = bgmSwitch.Quest.ValueNullable?.Name.ToString();
-                //    var situation = BgmQuestTab.GetBgmSituation( bgmSwitch.BGM.RowId );
-                //    loaded.Quests[string.IsNullOrEmpty( questName ) ? item.Name : questName] = situation;
-                //}
+                loaded = new() {
+                    Situation = BgmQuestTab.GetBgmSituation( item.BgmId )
+                };
             }
         }
 

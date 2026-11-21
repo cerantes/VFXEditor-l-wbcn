@@ -8,12 +8,12 @@ using VfxEditor.Utils;
 namespace VfxEditor.Select {
     public class SelectUiUtils {
         public static SelectResult GetSelectResult( string path, SelectResultType resultType, string resultName ) {
-            var resultPrefix = resultType.ToString().ToUpper().Replace( "游戏", "" );
+            var resultPrefix = resultType.ToString().ToUpperInvariant().Replace( "游戏", "" );
             return new SelectResult( resultType, resultName, $"[{resultPrefix}] {resultName}", path );
         }
 
         public static void DisplayNoVfx() {
-            using( var style = ImRaii.PushColor( ImGuiCol.Text, UiUtils.DALAMUD_ORANGE ) ) {
+            using( var style = ImRaii.PushColor( ImGuiCol.Text, UiUtils.YELLOW_ACCENT ) ) {
                 ImGui.SetCursorPosY( ImGui.GetCursorPosY() + 5 );
                 ImGui.TextWrapped( $"此对象未预置任何视效，点击下方链接以查阅如何为其添加一个视效 (英文)" );
             }
@@ -28,7 +28,7 @@ namespace VfxEditor.Select {
         }
 
         public static void DisplayPathWarning( string path, string warning ) {
-            using( var style = ImRaii.PushColor( ImGuiCol.Text, UiUtils.DALAMUD_ORANGE ) ) {
+            using( var style = ImRaii.PushColor( ImGuiCol.Text, UiUtils.YELLOW_ACCENT ) ) {
                 ImGui.TextWrapped( path );
             }
             UiUtils.Tooltip( warning );

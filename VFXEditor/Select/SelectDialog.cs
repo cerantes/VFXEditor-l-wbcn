@@ -1,55 +1,20 @@
-﻿using Dalamud.Interface;
-using Dalamud.Interface.Utility.Raii;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using VfxEditor.Data;
 using VfxEditor.FileManager;
 using VfxEditor.FileManager.Interfaces;
+using VfxEditor.Select.Base;
+using VfxEditor.Select.Favorite;
 using VfxEditor.Select.Lists;
 using VfxEditor.Select.Penumbra;
 using VfxEditor.Ui;
 using VfxEditor.Utils;
 
 namespace VfxEditor.Select {
-    public enum SelectResultType {
-        Local,
-        GamePath,
-        GameItem,
-        GameStatus,
-        GameAction,
-        GameZone,
-        GameEmote,
-        GameGimmick,
-        GameCutscene,
-        GameNpc,
-        GameMusic,
-        GameQuest,
-        GameCharacter,
-        GameJob,
-        GameMisc,
-        GameMount,
-        GameHousing,
-        GameUi
-    }
-
-    [Serializable]
-    public class SelectResult {
-        public SelectResultType Type;
-        public string Name;
-        public string DisplayString; // [PREFIX] Name
-        public string Path;
-
-        public SelectResult( SelectResultType type, string name, string displayString, string path ) {
-            Type = type;
-            Name = name;
-            DisplayString = displayString;
-            Path = path;
-        }
-
-        public bool CompareTo( SelectResult other ) => Type == other.Type && DisplayString == other.DisplayString && Path == other.Path;
-    }
-
     public abstract partial class SelectDialog : DalamudWindow {
         public static readonly List<string> LoggedFiles = [];
 
@@ -61,9 +26,13 @@ namespace VfxEditor.Select {
         private readonly Action<SelectResult> Action;
 
         protected readonly List<SelectTab> GameTabs = [];
-        protected readonly List<SelectResult> Favorites;
+
+        protected readonly List<SelectFavoriteItem> FavoritedItems;
+
         protected readonly SelectRecentTab RecentTab;
+
         protected readonly SelectFavoriteTab FavoritesTab;
+
         protected readonly SelectPenumbraTab PenumbraTab;
 
         private string GamePathInput = "";
@@ -76,12 +45,14 @@ namespace VfxEditor.Select {
         public SelectDialog( string name, string extensions, IFileManagerSelect manager, bool showLocal, Action<SelectResult> action ) : base( $"{name}##{manager.GetWindowId()}", false, new( 800, 500 ), manager.GetWindowSystem() ) {
             Manager = manager;
             Extensions = [.. extensions.Split( '|' )];
-            Favorites = manager.GetConfig().Favorites;
+
+            FavoritedItems = manager.GetConfig().FavoritedItems;
+
             ShowLocal = showLocal;
             Action = action;
 
             RecentTab = new( this, "最近", manager.GetConfig().RecentItems );
-            FavoritesTab = new( this, "收藏", manager.GetConfig().Favorites );
+            FavoritesTab = new( this, "收藏", FavoritedItems );
             PenumbraTab = new( this );
         }
 
@@ -132,28 +103,60 @@ namespace VfxEditor.Select {
             var isFavorite = IsFavorite( selectResult );
 
             using( var font = ImRaii.PushFont( UiBuilder.IconFont ) )
-            using( var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.DALAMUD_ORANGE, isFavorite ) ) {
+            using( var color = ImRaii.PushColor( ImGuiCol.Text, UiUtils.YELLOW_ACCENT, isFavorite ) ) {
                 ImGui.Text( FontAwesomeIcon.Star.ToIconString() );
 
                 if( ImGui.IsItemClicked() ) {
                     if( isFavorite ) RemoveFavorite( selectResult );
-                    else AddFavorite( selectResult );
+                    else AddFavoriteToRoot( selectResult );
                     res = true;
                 }
             }
             return res;
         }
 
-        private bool IsFavorite( SelectResult result ) => Favorites.Any( result.CompareTo );
+        private bool IsFavorite( SelectResult result ) => IsFavorite( result, FavoritedItems );
 
-        private void AddFavorite( SelectResult result ) {
-            Favorites.Add( result );
+        private static bool IsFavorite( SelectResult result, List<SelectFavoriteItem> items ) {
+            foreach( var item in items ) {
+                if( !item.IsFolder ) {
+                    if( result.CompareTo( item.Result ) ) {
+                        return true; // found it
+                    }
+                }
+                else {
+                    if( IsFavorite( result, item.Items ) ) return true; // don't need to keep looking anymore
+                }
+            }
+            return false;
+        }
+
+        private void AddFavoriteToRoot( SelectResult result ) {
+            FavoritedItems.Add( new SelectFavoriteItem() {
+                Result = result,
+                IsFolder = false
+            } );
             Plugin.Configuration.Save();
         }
 
         private void RemoveFavorite( SelectResult result ) {
-            Favorites.RemoveAll( result.CompareTo );
+            RemoveFavorite( result, FavoritedItems );
             Plugin.Configuration.Save();
+        }
+
+        private static bool RemoveFavorite( SelectResult result, List<SelectFavoriteItem> items ) {
+            foreach( var item in items ) {
+                if( !item.IsFolder ) {
+                    if( result.CompareTo( item.Result ) ) {
+                        items.Remove( item ); // successfully removed
+                        return true;
+                    }
+                }
+                else {
+                    if( RemoveFavorite( result, item.Items ) ) return true; // don't need to keep looking anymore
+                }
+            }
+            return false;
         }
     }
 }
