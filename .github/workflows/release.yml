@@ -107,10 +107,13 @@ jobs:
           Write-Host "orchestrion.csv: $($lines.Count) lines"
       - name: Restore dependencies
         run: dotnet restore
-      - name: Download Dalamud
+      - name: Download Dalamud (CN)
         run: |
-          Invoke-WebRequest -Uri https://goatcorp.github.io/dalamud-distrib/stg/latest.zip -OutFile latest.zip
-          Expand-Archive -Force latest.zip "$env:AppData\XIVLauncher\addon\Hooks\dev"
+          $info = Invoke-RestMethod -Uri "https://aonyx.ffxiv.wang/Dalamud/Release/VersionInfo?track=stg"
+          Write-Host "CN Dalamud: $($info.AssemblyVersion) (game $($info.SupportedGameVer))"
+          Invoke-WebRequest -Uri $info.downloadUrl -OutFile dalamud.7z
+          & "C:\Program Files\7-Zip\7z.exe" x dalamud.7z -o"$env:AppData\XIVLauncherCN\addon\Hooks\dev" -y
+          Get-ChildItem "$env:AppData\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll" | Select-Object Name,Length
       - name: Build
         run: |
           $ver = ('${{ github.ref_name }}' -split '-')[0]
