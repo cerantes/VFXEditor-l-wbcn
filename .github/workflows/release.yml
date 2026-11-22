@@ -112,8 +112,12 @@ jobs:
           $info = Invoke-RestMethod -Uri "https://aonyx.ffxiv.wang/Dalamud/Release/VersionInfo?track=stg"
           Write-Host "CN Dalamud: $($info.AssemblyVersion) (game $($info.SupportedGameVer))"
           Invoke-WebRequest -Uri $info.downloadUrl -OutFile dalamud.7z
-          & "C:\Program Files\7-Zip\7z.exe" x dalamud.7z -o"$env:AppData\XIVLauncherCN\addon\Hooks\dev" -y
-          Get-ChildItem "$env:AppData\XIVLauncherCN\addon\Hooks\dev\Dalamud.dll" | Select-Object Name,Length
+          $cnPath = "$env:AppData\XIVLauncherCN\addon\Hooks\dev"
+          $intlPath = "$env:AppData\XIVLauncher\addon\Hooks\dev"
+          New-Item -ItemType Directory -Force -Path $cnPath, $intlPath | Out-Null
+          & "C:\Program Files\7-Zip\7z.exe" x dalamud.7z -o"$cnPath" -y
+          Copy-Item "$cnPath\*" $intlPath -Recurse -Force
+          Get-ChildItem "$cnPath\Dalamud.dll","$intlPath\Dalamud.dll" | Select-Object FullName,Length
       - name: Build
         run: |
           $ver = ('${{ github.ref_name }}' -split '-')[0]
