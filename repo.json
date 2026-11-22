@@ -1,28 +1,26 @@
 [
   {
-    "Author": "ocealot",
-    "Name": "[BETA] VFXEditor",
-    "Punchline": "VFXEditor Beta Builds",
-    "Description": "VFX, animation, and sound editing plugin. Icon by PAPACHIN",
+    "Author": "ocealot, AtmoOmen(本地化)",
+    "Name": "VFXEditorCN",
+    "Punchline": "VFX 编辑器、查看器 (中文汉化版)",
+    "Description": "游戏内视觉效果、动画与音频编辑插件 | 图标来源: PAPACHIN | 本地化: AtmoOmen",
     "Tags": [
       "VFX",
-      "AVFX",
-      "Animation",
-      "Sound"
+      "AVFX"
     ],
-    "InternalName": "VFXEditor-Beta",
+    "InternalName": "VFXEditorCN",
     "AssemblyVersion": "2.0.0.4",
     "TestingAssemblyVersion": "2.0.0.4",
-    "RepoUrl": "https://github.com/0ceal0t/Dalamud-VFXEditor",
+    "RepoUrl": "https://github.com/cerantes/VFXEditor-l-wbcn",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "IsHide": "False",
     "IsTestingExclusive": "False",
     "DownloadCount": 1,
     "LastUpdate": 1618608322,
-    "DownloadLinkInstall": "https://github.com/0ceal0t/Dalamud-VFXEditor/releases/download/2.0.0.4/VFXEditor-Beta.zip",
-    "DownloadLinkUpdate": "https://github.com/0ceal0t/Dalamud-VFXEditor/releases/download/2.0.0.4/VFXEditor-Beta.zip",
-    "DownloadLinkTesting": "https://github.com/0ceal0t/Dalamud-VFXEditor/releases/download/2.0.0.4/VFXEditor-Beta.zip",
-    "IconUrl": "https://raw.githubusercontent.com/0ceal0t/Dalamud-VFXEditor/main/assets/icon.png"
+    "DownloadLinkInstall": "https://github.com/cerantes/VFXEditor-l-wbcn/releases/download/2.0.0.4/VFXEditorCN.zip",
+    "DownloadLinkUpdate": "https://github.com/cerantes/VFXEditor-l-wbcn/releases/download/2.0.0.4/VFXEditorCN.zip",
+    "DownloadLinkTesting": "https://github.com/cerantes/VFXEditor-l-wbcn/releases/download/2.0.0.4/VFXEditorCN.zip",
+    "IconUrl": "https://raw.githubusercontent.com/cerantes/VFXEditor-l-wbcn/main/assets/icon.png"
   }
 ]

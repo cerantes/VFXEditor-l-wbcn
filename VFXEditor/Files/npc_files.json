@@ -59200,6 +59200,8 @@
             "chara/monster/m7104/animation/a0001/bt_common/mon_sp/m7104/mon_sp002.pap",
             "chara/monster/m7104/animation/a0001/bt_common/mon_sp/m7104/mon_sp003.pap",
             "chara/monster/m7104/animation/a0001/bt_common/mon_sp/m7104/mon_sp004.pap",
+            "chara/monster/m7104/animation/a0001/bt_common/mon_sp/m7104/mon_sp005.pap",
+            "chara/monster/m7104/animation/a0001/bt_common/mon_sp/m7104/mon_sp006.pap",
             "chara/monster/m7104/animation/a0001/bt_common/resident/monster.pap",
             "chara/monster/m7104/animation/a0001/bt_common/specialpop/specialpop.pap"
         ],
@@ -63227,6 +63229,13 @@
             "chara/monster/m8512/animation/a0001/bt_common/event_base/event_base_caution.pap",
             "chara/monster/m8512/animation/a0001/bt_common/event_base/event_base_idle4.pap",
             "chara/monster/m8512/animation/a0001/bt_common/resident/monster.pap"
+        ],
+        "tmb": [],
+        "vfx": []
+    },
+    "m8513": {
+        "pap": [
+            "chara/monster/m8513/animation/a0001/bt_common/resident/monster.pap"
         ],
         "tmb": [],
         "vfx": []
